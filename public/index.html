@@ -1,0 +1,47 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StudyFeed</title>
+<style>
+:root{--bg:#0f1115;--c:#1a1d24;--t:#eee;--m:#8a93a3;--a:#6c8cff}
+@media(prefers-color-scheme:light){:root{--bg:#f4f5f8;--c:#fff;--t:#111;--m:#667;--a:#3d5afe}}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--t);display:flex;min-height:100vh}
+nav{width:76px;background:var(--c);display:flex;flex-direction:column;gap:6px;padding:10px 6px;position:sticky;top:0;height:100vh}
+nav button{background:none;border:0;color:var(--m);font-size:11px;padding:8px 2px;border-radius:10px;cursor:pointer}nav button b{display:block;font-size:20px}nav button.on{background:var(--bg);color:var(--a)}
+main{flex:1;max-width:620px;margin:auto;padding:12px}
+input,select,textarea,button.p{width:100%;padding:10px;margin:4px 0;border-radius:10px;border:1px solid #8884;background:var(--c);color:var(--t);font:inherit}
+button.p{background:var(--a);color:#fff;border:0;cursor:pointer}button.s{background:none;border:0;color:var(--a);cursor:pointer;padding:4px 8px}
+.card{background:var(--c);border-radius:14px;padding:14px;margin:10px 0}.tag{font-size:12px;color:var(--a)}.ans{background:var(--bg);padding:8px;border-radius:8px;margin-top:6px}
+small{color:var(--m)}@media(max-width:500px){nav{width:58px}nav button{font-size:9px}}
+</style></head><body>
+<nav id="nav"></nav><main id="m"></main>
+<script>
+const $=s=>document.querySelector(s),uid=localStorage.uid||(localStorage.uid=Math.random().toString(36).slice(2)),H=()=>({'Content-Type':'application/json','x-admin':localStorage.adm||''});
+const api=(u,o={})=>fetch(u,{headers:H(),...o,body:o.body&&JSON.stringify(o.body)}).then(r=>r.json());
+const SUBS=['Mathematics','English','Physics','Chemistry','Biology','History','Geography','ICT'],DAYS=['Mon','Tue','Wed','Thu','Fri'];
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tabs=[['feed','🏠','Feed'],['subj','📚','Subjects'],['tt','🗓️','Timetable'],['post','➕','Post'],['notes','🔔','Alerts'],['set','⚙️','Settings']];
+let tab='feed',q='',sub='';
+function nav(){$('#nav').innerHTML=tabs.map(t=>`<button class="${t[0]==tab?'on':''}" onclick="go('${t[0]}')"><b>${t[1]}</b>${t[2]}</button>`).join('')}
+function go(t,s){tab=t;sub=s||'';nav();render()}
+async function render(){const m=$('#m');
+ if(tab=='feed'||tab=='subj'&&sub){let p=await api('/api/feed');if(sub)p=p.filter(x=>x.subject==sub);if(q)p=p.filter(x=>(x.text+x.subject).toLowerCase().includes(q.toLowerCase()));
+  m.innerHTML=`<input placeholder="🔍 Search" value="${esc(q)}" oninput="q=this.value;render()" autofocus>`+(sub?`<h3>${sub}</h3>`:'')+(p.map(card).join('')||'<small>Nothing yet.</small>')}
+ else if(tab=='subj')m.innerHTML='<h3>Subjects</h3>'+SUBS.map(s=>`<div class="card" onclick="go('subj','${s}')">${s}</div>`).join('');
+ else if(tab=='tt'){const t=JSON.parse(localStorage.tt||'{}');m.innerHTML='<h3>Timetable</h3>'+DAYS.map(d=>`<small>${d}</small><textarea rows=2 onchange="saveTT('${d}',this.value)">${esc(t[d])}</textarea>`).join('')}
+ else if(tab=='post')m.innerHTML=`<h3>Post</h3><input id=pn placeholder="Your name" value="${localStorage.name||''}"><select id=pt><option value=question>Question</option><option value=video>Video link</option><option value=quiz>Quiz (admin)</option></select><select id=ps>${SUBS.map(s=>`<option>${s}</option>`).join('')}</select><textarea id=px rows=3 placeholder="Text"></textarea><input id=pv placeholder="Video URL (optional)"><input id=pa placeholder="Answer (admin quiz only)"><button class=p onclick=doPost()>Submit</button><small>User posts need admin approval.</small>`;
+ else if(tab=='notes'){const n=await api('/api/notes/'+uid);m.innerHTML='<h3>Alerts</h3>'+(n.map(x=>`<div class=card>${esc(x.text)}</div>`).join('')||'<small>None.</small>')+(localStorage.adm?'<h3>Pending approval</h3><div id=pend></div>':'');if(localStorage.adm)pend()}
+ else if(tab=='set')settings()}
+function card(p){return`<div class=card><span class=tag>${esc(p.subject)} · ${p.type}</span> <small>by ${esc(p.author)}</small><p>${esc(p.text)}</p>${p.video?`<a href="${esc(p.video)}" target=_blank>▶ Video</a>`:''}
+ <div>${p.hasAnswer?`<button class=s onclick="ans('${p.id}',this)">Show answer</button>`:''}<button class=s onclick="expl('${p.id}',this)">✨ Explain</button><button class=s onclick="cm('${p.id}')">💬 Comments</button></div><div id="x${p.id}"></div></div>`}
+async function ans(i,b){const r=await api(`/api/posts/${i}/answer`);$('#x'+i).innerHTML=`<div class=ans>${esc(r.answer)}</div>`;b.remove()}
+async function expl(i,b){const t=b.closest('.card').querySelector('p').textContent;$('#x'+i).innerHTML='<div class=ans>Thinking…</div>';const r=await api('/api/explain',{method:'POST',body:{text:t}});$('#x'+i).innerHTML=`<div class=ans>${esc(r.text||r.error)}</div>`}
+async function cm(i){const c=await api(`/api/posts/${i}/comments`);$('#x'+i).innerHTML=c.map(x=>`<div class=ans><b>${esc(x.name)}</b> ${esc(x.text)}</div>`).join('')+`<input id=ct${i} placeholder="Add comment"><button class=p onclick="addC('${i}')">Send</button>`}
+async function addC(i){await api(`/api/posts/${i}/comments`,{method:'POST',body:{name:localStorage.name,text:$('#ct'+i).value}});cm(i)}
+function saveTT(d,v){const t=JSON.parse(localStorage.tt||'{}');t[d]=v;localStorage.tt=JSON.stringify(t)}
+async function doPost(){localStorage.name=$('#pn').value;const r=await api('/api/posts',{method:'POST',body:{uid,name:$('#pn').value,type:$('#pt').value,subject:$('#ps').value,text:$('#px').value,video:$('#pv').value,answer:$('#pa').value}});alert(r.pending?'Sent for approval':'Posted');go('feed')}
+async function pend(){const p=await api('/api/pending');$('#pend').innerHTML=Array.isArray(p)?p.map(x=>`<div class=card>${esc(x.text)}<br><small>${esc(x.author)}</small><br><button class=s onclick="rev('${x.id}',1)">Approve</button><button class=s onclick="rev('${x.id}',0)">Deny</button></div>`).join('')||'<small>None.</small>':'Wrong admin password'}
+async function rev(i,ok){await api('/api/review/'+i,{method:'POST',body:{ok}});render()}
+async function settings(){const s=localStorage.adm?await api('/api/settings'):{};$('#m').innerHTML=`<h3>Settings</h3><div class=card><b>Admin</b><input id=ad type=password placeholder="Admin password" value="${localStorage.adm||''}"><button class=p onclick="localStorage.adm=$('#ad').value;settings()">Unlock</button></div>`+(s.base?`<div class=card><b>AI API (RelayAPI / any OpenAI-style)</b><input id=sb placeholder="Base URL" value="${esc(s.base)}"><input id=sk type=password placeholder="API key ${esc(s.key)}"><input id=sm placeholder="Model" value="${esc(s.model)}"><button class=p onclick=saveS()>Save</button><button class=p onclick=testS()>Test</button><button class=p onclick=genS()>Generate daily quizzes now</button><small id=so></small></div>`:'')}
+async function saveS(){await api('/api/settings',{method:'POST',body:{base:$('#sb').value,key:$('#sk').value,model:$('#sm').value}});$('#so').textContent='Saved ✅'}
+async function testS(){$('#so').textContent='Testing…';const r=await api('/api/test',{method:'POST'});$('#so').textContent=r.ok?'Works ✅ '+r.reply:'❌ '+r.error}
+async function genS(){$('#so').textContent='Generating (takes a while)…';const r=await api('/api/generate',{method:'POST'});$('#so').textContent=r.errors?.length?'Errors: '+r.errors.join('; '):'Done ✅'}
+nav();render();
+</script></body></html>
