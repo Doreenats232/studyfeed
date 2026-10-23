@@ -1,75 +1,75 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0d14"><title>StudyFeed</title>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#ffffff"><title>StudyFeed</title>
 <style>
-:root{--bg:#0b0d14;--s:#141826;--s2:#1b2033;--t:#eef0f8;--m:#8d95ad;--a:#7c8cff;--a2:#c06cff;--b:#ffffff14;--g:linear-gradient(135deg,#7c8cff,#c06cff)}
+:root{--bg:#f0f2f5;--c:#fff;--t:#1c1e21;--m:#65676b;--a:#4f46e5;--l:#e4e6eb}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--t);background:radial-gradient(900px 500px at 85% -10%,#4a2d9a55,transparent),radial-gradient(700px 420px at -10% 5%,#1d3a8a44,transparent),var(--bg);min-height:100vh}
-main{max-width:640px;margin:0 auto;padding:18px 16px calc(100px + env(safe-area-inset-bottom))}
-h2{margin:6px 0 14px;font-size:24px}h4{margin:0 0 10px;font-size:16px}
-.logo{font-size:26px;font-weight:800;background:var(--g);-webkit-background-clip:text;background-clip:text;color:transparent;margin:0 0 12px}
-nav{position:fixed;z-index:9;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:#10131fdd;backdrop-filter:blur(16px);border-top:1px solid var(--b)}
-nav button{flex:1;background:none;border:0;color:var(--m);font:600 10px inherit;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:2px 0}
-nav b{font-size:19px;width:40px;height:30px;display:grid;place-items:center;border-radius:12px;transition:.2s}
-nav button.on{color:var(--t)}nav button.on b{background:var(--s2)}
-nav .pt b{background:var(--g);color:#fff;box-shadow:0 6px 18px #7c8cff55}
-@media(min-width:800px){nav{top:0;right:auto;width:92px;flex-direction:column;justify-content:flex-start;gap:10px;padding:24px 8px;border-top:0;border-right:1px solid var(--b)}main{margin-left:calc(50% - 228px)}}
-.card{background:linear-gradient(180deg,#ffffff08,#ffffff03),var(--s);border:1px solid var(--b);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 8px 24px #0005}
-article.card{border-left:3px solid var(--c)}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--t);background:var(--bg)}
+header{position:sticky;top:0;z-index:8;background:var(--c);border-bottom:1px solid var(--l);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.logo{font-size:23px;font-weight:800;color:var(--a);flex:1}header input{flex:2;margin:0;border-radius:99px;background:var(--bg);border:0;padding:9px 14px}
+main{max-width:600px;margin:0 auto;padding:10px 10px calc(84px + env(safe-area-inset-bottom))}
+nav{position:fixed;z-index:9;left:0;right:0;bottom:0;display:flex;background:var(--c);border-top:1px solid var(--l);padding:4px 0 calc(4px + env(safe-area-inset-bottom))}
+nav button{flex:1;background:none;border:0;color:var(--m);font:600 10px inherit;display:flex;flex-direction:column;align-items:center;padding:4px 0;cursor:pointer}nav b{font-size:22px}nav .on{color:var(--a)}
+@media(min-width:800px){nav{top:52px;right:auto;width:84px;flex-direction:column;justify-content:flex-start;gap:8px;padding:16px 4px;border-right:1px solid var(--l);border-top:0}main{margin-left:calc(50% - 300px + 42px)}}
+.stories{display:flex;gap:12px;overflow-x:auto;padding:8px 2px 12px;scrollbar-width:none}.stories::-webkit-scrollbar{display:none}
+.st{flex:0 0 auto;text-align:center;font-size:11px;font-weight:600;width:64px;cursor:pointer;color:var(--m)}.st i{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 4px;border-radius:50%;font-style:normal;font-size:26px;background:var(--c);border:3px solid transparent;background-clip:padding-box;outline:3px solid var(--c);box-shadow:0 0 0 3px var(--c1)}
+.st.on{color:var(--t)}
+.card{background:var(--c);border-radius:12px;padding:14px;margin:10px 0;box-shadow:0 1px 3px #0001}
 .hd{display:flex;align-items:center;gap:10px;margin-bottom:8px}.hd div{flex:1;line-height:1.2}.hd small{display:block}
-.av{width:38px;height:38px;border-radius:50%;background:var(--g);display:grid;place-items:center;font:700 16px inherit;font-style:normal}
-.chip{font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c);white-space:nowrap}
-.tx{margin:6px 0 10px;font-size:16px;white-space:pre-wrap;word-break:break-word}
-.act{display:flex;gap:8px;margin-top:10px}.act button{flex:1;padding:9px 4px;border-radius:12px;border:1px solid var(--b);background:var(--s2);color:var(--t);font:600 13px inherit;cursor:pointer}
-.act button:active,.p:active{transform:scale(.97)}
-.vid{display:inline-block;padding:7px 14px;border-radius:10px;background:var(--s2);color:var(--a);text-decoration:none;font-weight:600}
-.ans{background:var(--bg);border:1px solid var(--b);padding:10px 12px;border-radius:12px;margin-top:8px;word-break:break-word}
-small,.mu{color:var(--m)}
-input,select,textarea{width:100%;padding:12px 14px;margin:5px 0;border-radius:12px;border:1px solid var(--b);background:var(--s2);color:var(--t);font:inherit;outline:0}
-input:focus,select:focus,textarea:focus{border-color:var(--a)}
-.p{width:100%;padding:12px;margin:6px 0;border:0;border-radius:12px;background:var(--g);color:#fff;font:700 15px inherit;cursor:pointer}
-.g{background:var(--s2);border:1px solid var(--b)}.row{display:flex;gap:8px}.row>*{flex:1}
-.pw{position:relative}.pw button{position:absolute;right:6px;top:9px;background:none;border:0;font-size:18px;cursor:pointer}
-.search{position:sticky;top:0;z-index:5;padding:6px 0;background:linear-gradient(var(--bg) 70%,transparent)}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.tile{border-radius:18px;padding:18px 14px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 30%,var(--s)),var(--s));border:1px solid var(--b);cursor:pointer;font-weight:700}
-.tile i{display:block;font-size:30px;font-style:normal;margin-bottom:6px}
-.st{margin-top:6px;font-size:13px}
-#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--s2);border:1px solid var(--b);padding:10px 18px;border-radius:99px;z-index:20;opacity:0;transition:.3s;pointer-events:none}
-#toast.on{opacity:1}
-</style></head><body><main id="m"></main><nav id="nav"></nav><div id="toast"></div>
+.av{width:40px;height:40px;border-radius:50%;background:var(--c1,var(--a));color:#fff;display:grid;place-items:center;font:700 17px inherit;font-style:normal}
+.chip{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:var(--bg);color:var(--m)}
+.tx{margin:4px 0 8px;white-space:pre-wrap;word-break:break-word;font-size:16px}
+.paper{margin:6px 0 10px;padding:6px 14px 6px 44px;position:relative;background:#fff repeating-linear-gradient(transparent 0 29px,#cfe0f5 29px 30px);background-position:0 6px;border:1px solid #dde3ec;border-radius:4px;box-shadow:0 3px 10px #0002;font:19px/30px 'Segoe Print','Bradley Hand','Comic Sans MS',cursive;color:#1f2a44}
+.paper:before{content:'';position:absolute;left:32px;top:0;bottom:0;width:2px;background:#f2a5a5}.paper .tx{font:inherit;margin:0}
+.act{display:flex;border-top:1px solid var(--l);margin-top:10px;padding-top:4px}.act button{flex:1;padding:8px 2px;border:0;background:none;color:var(--m);font:600 13px inherit;cursor:pointer;border-radius:8px}.act button:active{background:var(--bg)}.act .lk{color:#e0245e}
+.ans{background:#fffbe6;border:1px solid #f1e3a1;padding:10px 12px;border-radius:10px;margin-top:8px;word-break:break-word}.cm{background:var(--bg);border-radius:12px;padding:8px 12px;margin-top:6px}
+small,.mu{color:var(--m)}.mu{text-align:center}
+input,select,textarea{width:100%;padding:11px 14px;margin:5px 0;border-radius:10px;border:1px solid var(--l);background:var(--c);color:var(--t);font:inherit;outline:0}input:focus,textarea:focus{border-color:var(--a)}
+.p{width:100%;padding:11px;margin:6px 0;border:0;border-radius:10px;background:var(--a);color:#fff;font:700 15px inherit;cursor:pointer}.g{background:var(--bg);color:var(--t)}
+.row{display:flex;gap:8px}.row>*{flex:1}.pw{position:relative}.pw button{position:absolute;right:6px;top:9px;background:none;border:0;font-size:18px}
+.cmp{display:flex;gap:10px;align-items:center;cursor:pointer}.cmp span{flex:1;background:var(--bg);padding:10px 14px;border-radius:99px;color:var(--m)}
+.vp{position:relative;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;margin:6px 0}.vp iframe,.vp video{position:absolute;inset:0;width:100%;height:100%}
+.ov{position:absolute;inset:0;z-index:2;display:grid;place-items:center;cursor:pointer}.ov span{width:56px;height:56px;border-radius:50%;background:#000a;color:#fff;display:grid;place-items:center;font-size:22px}.vp.pl .ov span{opacity:0}
+.mt{position:absolute;z-index:3;right:8px;bottom:10px;background:#000a;color:#fff;border:0;border-radius:99px;padding:4px 9px}.pgb{position:absolute;z-index:3;left:0;right:0;bottom:0;height:4px;background:#fff4}.pgb i{display:block;height:100%;width:0;background:#fff}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:99px;z-index:20;opacity:0;transition:.3s;pointer-events:none}#toast.on{opacity:1}
+</style></head><body>
+<header><div class=logo>StudyFeed</div><input id=sq placeholder="🔍 Search" oninput="q=this.value;clearTimeout(window.sT);window.sT=setTimeout(()=>{tab='feed';nav();render()},300)"></header>
+<main id="m"></main><nav id="nav"></nav><div id="toast"></div>
 <script>
-const $=s=>document.querySelector(s),uid=localStorage.uid||(localStorage.uid=Math.random().toString(36).slice(2));
+const $=s=>$d.querySelector(s),$d=document,uid=localStorage.uid||(localStorage.uid=Math.random().toString(36).slice(2));
 const H=()=>({'Content-Type':'application/json','x-admin':localStorage.adm||''});
 const api=async(u,o={})=>{try{const r=await fetch(u,{headers:H(),...o,body:o.body&&JSON.stringify(o.body)}),t=await r.text();try{return JSON.parse(t)}catch{return{error:r.status==401?'Wrong admin password':t||'Error'}}}catch{return{error:'Network error'}}};
-const SM={Mathematics:['📐','#7c8cff'],English:['📖','#ff7ca8'],Physics:['⚡','#ffb347'],Chemistry:['🧪','#4ade80'],Biology:['🧬','#34d399'],History:['🏛️','#f59e0b'],Geography:['🌍','#38bdf8'],ICT:['💻','#c06cff']},SUBS=Object.keys(SM),DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const SM={Mathematics:['📐','#4f46e5'],English:['📖','#ec4899'],Physics:['⚡','#f59e0b'],Chemistry:['🧪','#10b981'],Biology:['🧬','#14b8a6'],History:['🏛️','#d97706'],Geography:['🌍','#0ea5e9'],ICT:['💻','#8b5cf6']},SUBS=Object.keys(SM),DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday'];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ago=t=>{const m=(Date.now()-t)/6e4;return m<1?'now':m<60?~~m+'m':m<1440?~~(m/60)+'h':~~(m/1440)+'d'};
-const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2600)};
-const tabs=[['feed','🏠','Feed'],['subj','📚','Subjects'],['post','＋','Post','pt'],['tt','🗓️','Timetable'],['notes','🔔','Alerts'],['set','⚙️','Settings']];
+const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2400)};
+const tabs=[['feed','🏠','Home'],['tt','🗓️','Timetable'],['post','➕','Post'],['notes','🔔','Alerts'],['set','⚙️','Settings']];
 let tab='feed',q='',sub='';
-function nav(){$('#nav').innerHTML=tabs.map(t=>`<button class="${t[3]||''} ${t[0]==tab?'on':''}" onclick="go('${t[0]}')"><b>${t[1]}</b>${t[2]}</button>`).join('')}
-function go(t,s){tab=t;sub=s||'';nav();render();scrollTo(0,0)}
+function nav(){$('#nav').innerHTML=tabs.map(t=>`<button class="${t[0]==tab?'on':''}" onclick="go('${t[0]}')"><b>${t[1]}</b>${t[2]}</button>`).join('')}
+function go(t,s){tab=t;sub=s??sub;if(t!='feed')sub='';nav();render();scrollTo(0,0)}
 async function render(){const m=$('#m');
- if(tab=='feed'||tab=='subj'&&sub){let p=await api('/api/feed');if(!Array.isArray(p))p=[];if(sub)p=p.filter(x=>x.subject==sub);if(q)p=p.filter(x=>(x.text+x.subject).toLowerCase().includes(q.toLowerCase()));
-  m.innerHTML=`<div class=logo>StudyFeed</div><div class=search><input id=sq placeholder="🔍  Search questions, subjects…" value="${esc(q)}" oninput="q=this.value;clearTimeout(window.sT);window.sT=setTimeout(render,250)"></div>`+(sub?`<h2>${SM[sub][0]} ${sub}</h2>`:'')+(p.map(card).join('')||'<div class="card mu">Nothing here yet. Check back soon 📚</div>');
-  if(q){const i=$('#sq');i.focus();i.setSelectionRange(q.length,q.length)}}
- else if(tab=='subj')m.innerHTML='<h2>Subjects</h2><div class=grid>'+SUBS.map(s=>`<div class=tile style="--c:${SM[s][1]}" onclick="go('subj','${s}')"><i>${SM[s][0]}</i>${s}</div>`).join('')+'</div>';
- else if(tab=='tt'){const t=JSON.parse(localStorage.tt||'{}');m.innerHTML='<h2>Timetable</h2>'+DAYS.map(d=>`<div class=card><h4>${d}</h4><textarea rows=2 placeholder="e.g. 8:00 Maths · 9:00 English" onchange="saveTT('${d}',this.value)">${esc(t[d])}</textarea></div>`).join('')}
- else if(tab=='post')m.innerHTML=`<h2>New post</h2><div class=card><input id=pn placeholder="Your name" value="${esc(localStorage.name)}"><div class=row><select id=pt><option value=question>Question</option><option value=video>Video link</option>${localStorage.adm?'<option value=quiz>Quiz</option>':''}</select><select id=ps>${SUBS.map(s=>`<option>${s}</option>`).join('')}</select></div><textarea id=px rows=4 placeholder="What's on your mind?"></textarea><input id=pv placeholder="Video URL (optional)">${localStorage.adm?'<input id=pa placeholder="Answer (for quizzes)">':''}<button class=p onclick=doPost()>Post</button><small>Posts from students are reviewed before they show up.</small></div>`;
- else if(tab=='notes'){const n=await api('/api/notes/'+uid);m.innerHTML='<h2>Alerts</h2>'+((Array.isArray(n)&&n.length)?n.map(x=>`<div class=card>${esc(x.text)}<small class=st>${ago(x.ts)} ago</small></div>`).join(''):'<div class="card mu">No alerts yet.</div>')+(localStorage.adm?'<h2>Pending approval</h2><div id=pend></div>':'');if(localStorage.adm)pend()}
+ if(tab=='feed'){let p=await api('/api/feed?uid='+uid);if(!Array.isArray(p))p=[];if(sub)p=p.filter(x=>x.subject==sub);if(q)p=p.filter(x=>(x.text+x.subject).toLowerCase().includes(q.toLowerCase()));
+  m.innerHTML=`<div class=stories><div class="st ${sub?'':'on'}" onclick="sub='';render()" style="--c1:#4f46e5"><i>🏠</i>All</div>${SUBS.map(s=>`<div class="st ${sub==s?'on':''}" onclick="sub='${s}';render()" style="--c1:${SM[s][1]}"><i>${SM[s][0]}</i>${s.slice(0,8)}</div>`).join('')}</div><div class="card cmp" onclick="go('post')"><i class=av>${esc((localStorage.name||'Y')[0].toUpperCase())}</i><span>Ask a question or share a video…</span></div>`+(p.map(card).join('')||'<div class="card mu">Nothing here yet 📚</div>');initV()}
+ else if(tab=='tt'){const t=JSON.parse(localStorage.tt||'{}');m.innerHTML=DAYS.map(d=>`<div class=card><b>${d}</b><textarea rows=2 placeholder="8:00 Maths · 9:00 English" onchange="saveTT('${d}',this.value)">${esc(t[d])}</textarea></div>`).join('')}
+ else if(tab=='post')m.innerHTML=`<div class=card><b>New post</b><input id=pn placeholder="Your name" value="${esc(localStorage.name)}"><div class=row><select id=pt><option value=question>Question</option><option value=video>Video</option>${localStorage.adm?'<option value=quiz>Quiz</option>':''}</select><select id=ps>${SUBS.map(s=>`<option>${s}</option>`).join('')}</select></div><textarea id=px rows=4 placeholder="What's on your mind?"></textarea><input id=pv placeholder="Video link (YouTube or .mp4)">${localStorage.adm?'<input id=pa placeholder="Answer (quizzes)">':''}<button class=p onclick=doPost()>Post</button><small>Student posts are reviewed first.</small></div>`;
+ else if(tab=='notes'){const n=await api('/api/notes/'+uid);m.innerHTML=((Array.isArray(n)&&n.length)?n.map(x=>`<div class=card>${esc(x.text)}<small> · ${ago(x.ts)}</small></div>`).join(''):'<div class="card mu">No alerts yet.</div>')+(localStorage.adm?'<h3>Pending approval</h3><div id=pend></div>':'');if(localStorage.adm)pend()}
  else settings()}
-function card(p){const m=SM[p.subject]||['📘','#7c8cff'];return`<article class=card style="--c:${m[1]}"><div class=hd><i class=av>${esc((p.author||'?')[0].toUpperCase())}</i><div><b>${esc(p.author)}</b><small>${ago(p.ts)}</small></div><span class=chip>${m[0]} ${esc(p.subject)}</span></div><p class=tx>${esc(p.text)}</p>${/^https?:\/\//.test(p.video||'')?`<a class=vid href="${esc(p.video)}" target=_blank rel=noopener>▶ Watch video</a>`:''}<div class=act>${p.hasAnswer?`<button onclick="ans('${p.id}',this)">💡 Answer</button>`:''}<button onclick="expl('${p.id}',this)">✨ Explain</button><button onclick="cm('${p.id}')">💬 Comments</button></div><div id="x${p.id}"></div></article>`}
-async function ans(i,b){const r=await api(`/api/posts/${i}/answer`);$('#x'+i).innerHTML=`<div class=ans>💡 ${esc(r.answer)}</div>`;b.remove()}
+function vid(u){u=u||'';const y=u.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/);if(y)return`<div class=vp data-y="${y[1]}"><div class=ov><span>▶</span></div><button class=mt>🔊</button><div class=pgb><i></i></div></div>`;if(/^https?:\/\/.+\.(mp4|webm)(\?|$)/i.test(u))return`<div class=vp><video controls playsinline src="${esc(u)}"></video></div>`;return''}
+let YTr;const ytLoad=()=>window.YT&&YT.Player?Promise.resolve():YTr||(YTr=new Promise(r=>{window.onYouTubeIframeAPIReady=r;const s=$d.createElement('script');s.src='https://www.youtube.com/iframe_api';$d.head.appendChild(s)}));
+async function initV(){const els=$d.querySelectorAll('.vp[data-y]:not(.ok)');if(!els.length)return;await ytLoad();els.forEach(el=>{el.classList.add('ok');const d=$d.createElement('div');el.prepend(d);const pl=new YT.Player(d,{host:'https://www.youtube-nocookie.com',videoId:el.dataset.y,playerVars:{controls:0,rel:0,modestbranding:1,playsinline:1,fs:0,disablekb:1,iv_load_policy:3},events:{onStateChange:e=>el.classList.toggle('pl',e.data==1)}});el.querySelector('.ov').onclick=()=>pl.getPlayerState()==1?pl.pauseVideo():pl.playVideo();el.querySelector('.mt').onclick=e=>{pl.isMuted()?(pl.unMute(),e.target.textContent='🔊'):(pl.mute(),e.target.textContent='🔇')};setInterval(()=>{try{el.querySelector('.pgb i').style.width=pl.getCurrentTime()/pl.getDuration()*100+'%'}catch{}},500)})}
+function card(p){const m=SM[p.subject]||['📘','#4f46e5'],qz=p.type=='quiz'||p.type=='question';return`<article class=card style="--c1:${m[1]}"><div class=hd><i class=av>${esc((p.author||'?')[0].toUpperCase())}</i><div><b>${esc(p.author)}</b><small>${ago(p.ts)} · ${m[0]} ${esc(p.subject)}</small></div><span class=chip>${p.type=='quiz'?'Quiz':p.type=='video'?'Video':'Question'}</span></div>${qz?`<div class=paper><p class=tx>${esc(p.text)}</p><div id="a${p.id}"></div></div>`:`<p class=tx>${esc(p.text)}</p>`}${vid(p.video)}<div class=act><button class="${p.liked?'lk':''}" onclick="like('${p.id}',this)">${p.liked?'❤️':'🤍'} ${p.nl||''}</button><button onclick="cm('${p.id}')">💬 ${p.nc||''}</button>${p.hasAnswer?`<button onclick="ans('${p.id}',this)">💡 Answer</button>`:''}<button onclick="expl('${p.id}',this)">✨ Explain</button><button onclick="share('${p.id}')">↗️</button></div><div id="x${p.id}"></div></article>`}
+async function like(i,b){const r=await api(`/api/posts/${i}/like`,{method:'POST',body:{uid}});if(r.error)return;b.className=r.liked?'lk':'';b.textContent=(r.liked?'❤️ ':'🤍 ')+(r.n||'')}
+function share(i){const t='Check this on StudyFeed: '+location.origin;navigator.share?navigator.share({text:t,url:location.origin}).catch(()=>{}):(navigator.clipboard?.writeText(location.origin),toast('Link copied'))}
+async function ans(i,b){const r=await api(`/api/posts/${i}/answer`);const a=$('#a'+i)||$('#x'+i);a.innerHTML+=`<div class=ans>💡 ${esc(r.answer)}</div>`;b.remove()}
 async function expl(i,b){const t=b.closest('.card').querySelector('.tx').textContent;$('#x'+i).innerHTML='<div class="ans mu">✨ Thinking…</div>';const r=await api('/api/explain',{method:'POST',body:{text:t}});$('#x'+i).innerHTML=`<div class=ans>${esc(r.text||r.error)}</div>`}
-async function cm(i){const c=await api(`/api/posts/${i}/comments`);$('#x'+i).innerHTML=(Array.isArray(c)?c:[]).map(x=>`<div class=ans><b>${esc(x.name)}</b> ${esc(x.text)}</div>`).join('')+`<div class=row><input id=ct${i} placeholder="Add a comment"><button class=p style="flex:0 0 80px" onclick="addC('${i}')">Send</button></div>`}
+async function cm(i){const c=await api(`/api/posts/${i}/comments`);$('#x'+i).innerHTML=(Array.isArray(c)?c:[]).map(x=>`<div class=cm><b>${esc(x.name)}</b> ${esc(x.text)}</div>`).join('')+`<div class=row style="margin-top:6px"><input id=ct${i} placeholder="Write a comment…"><button class=p style="flex:0 0 76px" onclick="addC('${i}')">Send</button></div>`}
 async function addC(i){await api(`/api/posts/${i}/comments`,{method:'POST',body:{name:localStorage.name,text:$('#ct'+i).value}});cm(i)}
 function saveTT(d,v){const t=JSON.parse(localStorage.tt||'{}');t[d]=v;localStorage.tt=JSON.stringify(t);toast('Saved')}
 async function doPost(){localStorage.name=$('#pn').value;const r=await api('/api/posts',{method:'POST',body:{uid,name:$('#pn').value,type:$('#pt').value,subject:$('#ps').value,text:$('#px').value,video:$('#pv').value,answer:$('#pa')?.value}});if(r.error)return toast(r.error);toast(r.pending?'Sent for approval ✅':'Posted ✅');go('feed')}
-async function pend(){const p=await api('/api/pending');$('#pend').innerHTML=Array.isArray(p)?p.map(x=>`<div class=card>${esc(x.text)}<small class=st>by ${esc(x.author)} · ${esc(x.subject)}</small><div class=row><button class=p onclick="rev('${x.id}',1)">Approve</button><button class="p g" onclick="rev('${x.id}',0)">Deny</button></div></div>`).join('')||'<div class="card mu">Nothing waiting.</div>':'<div class="card mu">Wrong admin password</div>'}
+async function pend(){const p=await api('/api/pending');$('#pend').innerHTML=Array.isArray(p)?p.map(x=>`<div class=card>${esc(x.text)}<small> · ${esc(x.author)} · ${esc(x.subject)}</small><div class=row><button class=p onclick="rev('${x.id}',1)">Approve</button><button class="p g" onclick="rev('${x.id}',0)">Deny</button></div></div>`).join('')||'<div class="card mu">Nothing waiting.</div>':'<div class="card mu">Wrong admin password</div>'}
 async function rev(i,ok){await api('/api/review/'+i,{method:'POST',body:{ok}});toast(ok?'Approved':'Denied');render()}
 async function settings(){const adm=localStorage.adm||'',s=adm?await api('/api/settings'):{},ok=s.base!==undefined;
- $('#m').innerHTML=`<h2>Settings</h2><div class=card><h4>🔐 Admin access</h4><div class=pw><input id=ad type=password placeholder="Enter admin password" value="${esc(adm)}" autocomplete=off><button onclick="const i=$('#ad');i.type=i.type=='password'?'text':'password'">👁</button></div><div class=row><button class=p onclick="localStorage.adm=$('#ad').value;settings()">Unlock</button>${adm?'<button class="p g" onclick="localStorage.removeItem(\'adm\');settings()">Lock</button>':''}</div><small class=st>${ok?'✅ Unlocked':adm?'❌ '+esc(s.error||'Wrong password'):'🔒 Locked'}</small></div>`+(ok?`<div class=card><h4>🤖 AI connection</h4><small>RelayAPI or any OpenAI-style API</small><input id=sb placeholder="Base URL (ends with /v1)" value="${esc(s.base)}"><input id=sk type=password placeholder="API key ${esc(s.key)}"><input id=sm placeholder="Model" value="${esc(s.model)}"><div class=row><button class=p onclick=saveS()>Save</button><button class="p g" onclick=testS()>Test</button></div><button class="p g" onclick=genS()>⚡ Generate today's quizzes</button><small id=so class=st></small></div>`:'')}
+ $('#m').innerHTML=`<div class=card><b>🔐 Admin access</b><div class=pw><input id=ad type=password placeholder="Enter admin password" value="${esc(adm)}" autocomplete=off><button onclick="const i=$('#ad');i.type=i.type=='password'?'text':'password'">👁</button></div><div class=row><button class=p onclick="localStorage.adm=$('#ad').value;settings()">Unlock</button>${adm?'<button class="p g" onclick="localStorage.removeItem(\'adm\');settings()">Lock</button>':''}</div><small>${ok?'✅ Unlocked':adm?'❌ '+esc(s.error||'Wrong password'):'🔒 Locked'}</small></div>`+(ok?`<div class=card><b>🤖 AI connection</b><br><small>RelayAPI or any OpenAI-style API. Set AI_API_KEY in Render to keep it forever.</small><input id=sb placeholder="Base URL (ends with /v1)" value="${esc(s.base)}"><input id=sk type=password placeholder="API key ${esc(s.key)}"><input id=sm placeholder="Model" value="${esc(s.model)}"><div class=row><button class=p onclick=saveS()>Save</button><button class="p g" onclick=testS()>Test</button></div><button class="p g" onclick=genS()>⚡ Generate today's quizzes</button><small id=so></small></div>`:'')}
 async function saveS(){const r=await api('/api/settings',{method:'POST',body:{base:$('#sb').value,key:$('#sk').value,model:$('#sm').value}});$('#so').textContent=r.error?'❌ '+r.error:'Saved ✅'}
 async function testS(){$('#so').textContent='Testing…';const r=await api('/api/test',{method:'POST'});$('#so').textContent=r.ok?'Works ✅ '+r.reply:'❌ '+(r.error||'Failed')}
-async function genS(){$('#so').textContent='Generating, this takes a while…';const r=await api('/api/generate',{method:'POST'});$('#so').textContent=r.errors?.length?'Errors: '+r.errors.join('; '):r.error?'❌ '+r.error:'Done ✅'}
+async function genS(){$('#so').textContent='Generating, takes a while…';const r=await api('/api/generate',{method:'POST'});$('#so').textContent=r.errors?.length?'Errors: '+r.errors.join('; '):r.error?'❌ '+r.error:'Done ✅'}
 nav();render();
 </script></body></html>
