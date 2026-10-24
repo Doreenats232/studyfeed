@@ -71,7 +71,7 @@ app.post('/api/review/:id',(q,r)=>{
 });
 app.get('/api/notes/:uid',(q,r)=>r.json(db.notes.filter(n=>n.uid===q.params.uid).sort((a,b)=>b.ts-a.ts)));
 app.post('/api/explain',async(q,r)=>{try{r.json({text:await ai('Explain this simply for an S3 student:\n'+String(q.body.text).slice(0,1500))})}catch(e){r.status(500).json({error:e.message})}});
-app.get('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const s=db.settings;r.json({...s,key:s.key?'••••'+s.key.slice(-4):''})});
+app.get('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const s=db.settings;r.json({...s,key:process.env.AI_API_KEY?'••••(from Render env)':s.key?'••••'+s.key.slice(-4):''})});
 app.post('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const b=q.body;if(b.base)db.settings.base=b.base;if(b.model)db.settings.model=b.model;if(b.key)db.settings.key=b.key;if(typeof b.style==='string')db.settings.style=b.style;save();r.json({ok:1})});
 app.post('/api/test',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);try{r.json({ok:1,reply:await ai('Reply with: OK')})}catch(e){r.json({ok:0,error:e.message})}});
 app.post('/api/generate',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);r.json({errors:await generate()})});
