@@ -3,9 +3,20 @@ const app=express();app.use(express.json({limit:'2mb'}));app.use(express.static(
 const F=process.env.DATA_FILE||'data.json',ADMIN=process.env.ADMIN_PASSWORD||'admin123';
 let db={settings:{base:'https://relayapi-c5ah.onrender.com/v1',key:'',model:'gpt-4o'},posts:[],comments:[],notes:[],lastGen:'',schedules:[],seen:{}};
 try{db={...db,...JSON.parse(fs.readFileSync(F))}}catch{}
-const TU=(process.env.TURSO_URL||'').replace('libsql://','https://'),TT=process.env.TURSO_TOKEN;
-const tq=async(sql,args=[])=>{const r=await fetch(TU+'/v2/pipeline',{method:'POST',headers:{Authorization:'Bearer '+TT,'Content-Type':'application/json'},body:JSON.stringify({requests:[{type:'execute',stmt:{sql,args:args.map(v=>({type:'text',value:v}))}},{type:'close'}]})});return (await r.json()).results[0].response?.result};
-let st;const save=()=>{try{fs.writeFileSync(F,JSON.stringify(db))}catch{}if(TU&&TT){clearTimeout(st);st=setTimeout(()=>tq('INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)',['db',JSON.stringify(db)]).catch(e=>console.log('turso',e.message)),800)}};
+const VU=(process.env.VAULT_URL||'https://terabox-vault-backend-1.onrender.com').replace(/\/$/,''),VK=process.env.VAULT_KEY;
+const vs={ok:false,last:0,err:VK?'':'VAULT_KEY not set',file:''};let vReady=!VK,vBusy=false,vDirty=false,vT;
+const vf=(p,o={})=>fetch(VU+p,{...o,headers:{'X-Api-Key':VK,...(o.headers||{})}});
+const vj=async(p,b)=>{const r=await vf(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),t=await r.text();let j={};try{j=JSON.parse(t)}catch{}if(!r.ok)throw Error(p+' '+r.status+' '+t.slice(0,100));return j};
+const vList=async()=>{const r=await vf('/v1/fs/list');if(!r.ok)throw Error('list '+r.status);const j=await r.json(),a=Array.isArray(j)?j:(j.files||j.items||j.list||j.entries||[]);return a.map(x=>String(x.name||x.filename||x.server_filename||x.path||x).split('/').pop()).filter(n=>/^studyfeed-db-\d+\.json$/.test(n)).sort()};
+async function vaultSave(){if(!VK||!vReady)return;if(vBusy){vDirty=true;return}vBusy=true;
+  try{const name=`studyfeed-db-${Date.now()}.json`,fd=new FormData();fd.append('file',new Blob([JSON.stringify(db)],{type:'application/json'}),name);
+    const r=await vf('/v1/upload',{method:'POST',body:fd});if(!r.ok)throw Error('upload '+r.status+' '+(await r.text()).slice(0,100));
+    const l=await vList();if(!l.includes(name))throw Error('uploaded but not found in vault');
+    vs.ok=true;vs.err='';vs.last=Date.now();vs.file=name;
+    for(const o of l.slice(0,-3))await vj('/v1/fs/delete',{path:o,paths:[o]}).catch(()=>{});
+  }catch(e){vs.ok=false;vs.err=e.message}finally{vBusy=false;if(vDirty){vDirty=false;vaultSave()}}}
+const save=()=>{try{fs.writeFileSync(F,JSON.stringify(db))}catch{}if(VK){clearTimeout(vT);vT=setTimeout(vaultSave,5000)}};
+async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}const n=l[l.length-1],s=await vj('/v1/fs/sign',{path:n,ttl:300}),j=await(await fetch(s.url)).json();db={...db,...j};vReady=true;vs.ok=true;vs.err='';vs.file=n;vs.last=Date.now()}catch(e){vs.err='load: '+e.message}}
 const isAdmin=r=>r.headers['x-admin']===ADMIN;
 const SUBJECTS=['Mathematics','English','Physics','Chemistry','Biology','History','Geography','ICT'];
 const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -64,5 +75,6 @@ app.get('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const s=
 app.post('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const b=q.body;if(b.base)db.settings.base=b.base;if(b.model)db.settings.model=b.model;if(b.key)db.settings.key=b.key;if(typeof b.style==='string')db.settings.style=b.style;save();r.json({ok:1})});
 app.post('/api/test',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);try{r.json({ok:1,reply:await ai('Reply with: OK')})}catch(e){r.json({ok:0,error:e.message})}});
 app.post('/api/generate',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);r.json({errors:await generate()})});
-(async()=>{if(TU&&TT){try{await tq('CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY,v TEXT)');const x=await tq('SELECT v FROM kv WHERE k=?',['db']);if(x.rows.length)db={...db,...JSON.parse(x.rows[0][0].value)};console.log('Storage: Turso')}catch(e){console.log('turso',e.message)}}
-app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up'))})();
+app.get('/api/storage',A(async()=>({...vs,configured:!!VK,ready:vReady})));
+app.post('/api/storage/save',A(async()=>{await vaultSave();return{...vs}}));
+(async()=>{await vaultLoad();if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},6e4);app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
