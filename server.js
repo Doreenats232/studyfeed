@@ -13,10 +13,10 @@ async function vaultSave(){if(!VK||!vReady)return;if(vBusy){vDirty=true;return}v
     const r=await vf('/v1/upload',{method:'POST',body:fd});if(!r.ok)throw Error('upload '+r.status+' '+(await r.text()).slice(0,100));
     const l=await vList();if(!l.includes(name))throw Error('uploaded but not found in vault');
     vs.ok=true;vs.err='';vs.last=Date.now();vs.file=name;
-    for(const o of l.slice(0,-3))await vj('/v1/fs/delete',{path:o,paths:[o]}).catch(()=>{});
+    if(db.posts.length>=(vs.count||0))for(const o of l.slice(0,-10))await vj('/v1/fs/delete',{path:o,paths:[o]}).catch(()=>{});vs.count=db.posts.length;vs.files=l.length;
   }catch(e){vs.ok=false;vs.err=e.message}finally{vBusy=false;if(vDirty){vDirty=false;vaultSave()}}}
 const save=()=>{try{fs.writeFileSync(F,JSON.stringify(db))}catch{}if(VK){clearTimeout(vT);vT=setTimeout(vaultSave,5000)}};
-async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}const n=l[l.length-1],s=await vj('/v1/fs/sign',{path:n,ttl:300}),j=await(await fetch(s.url)).json();db={...db,...j};vReady=true;vs.ok=true;vs.err='';vs.file=n;vs.last=Date.now()}catch(e){vs.err='load: '+e.message}}
+async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}const n=l[l.length-1],s=await vj('/v1/fs/sign',{path:n,ttl:300}),j=await(await fetch(s.url)).json();db={...db,...j};vReady=true;vs.ok=true;vs.err='';vs.file=n;vs.last=Date.now();vs.count=(db.posts||[]).length;vs.files=l.length}catch(e){vs.err='load: '+e.message}}
 const isAdmin=r=>r.headers['x-admin']===ADMIN;
 const SUBJECTS=['Mathematics','English','Physics','Chemistry','Biology','History','Geography','ICT'];
 const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -26,13 +26,17 @@ async function ai(prompt){
   const j=await r.json().catch(()=>({}));if(!r.ok)throw Error((j.error?.message||j.message||'AI error')+' ['+r.status+' '+bu+'/chat/completions, model '+s.model+']');
   return j.choices[0].message.content;
 }
+const OKT=new Set(['svg','g','line','rect','circle','ellipse','polygon','polyline','path','text','tspan','defs','marker']),OKA=new Set(['x','y','x1','y1','x2','y2','cx','cy','r','rx','ry','width','height','points','d','fill','stroke','stroke-width','stroke-dasharray','font-size','text-anchor','transform','viewBox','xmlns','marker-end','id','font-family','font-weight','opacity','markerWidth','markerHeight','refX','refY','orient','dx','dy']);
+function cleanSvg(s){s=String(s||'').trim();if(!/^<svg[\s>]/i.test(s))return'';s=s.slice(0,6000).replace(/<!--[\s\S]*?-->/g,'').replace(/<(script|style|foreignObject)[\s\S]*?<\/\1>/gi,'');
+  s=s.replace(/<(\/?)([a-zA-Z]+)([^>]*)>/g,(m,sl,t,a)=>{t=t.toLowerCase();if(!OKT.has(t))return'';if(sl)return'</'+t+'>';let o='';for(const x of a.matchAll(/([\w:-]+)\s*=\s*"([^"]*)"/g)){const k=x[1],v=x[2];if(OKA.has(k)&&!/javascript|data:|url\((?!#)/i.test(v))o+=` ${k}="${v}"`}return'<'+t+o+(/\/\s*>$/.test(m)?'/':'')+'>'});
+  if(!/viewBox=/.test(s))s=s.replace('<svg','<svg viewBox="0 0 400 240"');return s}
 const STYLE=()=>db.settings.style||'Scenario-based, competency-based questions matching the new competency-based lower secondary curriculum: a short real-life scenario, then a question that applies knowledge.';
 const job={running:false,label:'',total:0,done:0,made:0,errors:[],cur:''};
 function runJob(label,items){if(job.running)throw Error('A job is already running, wait for it to finish');Object.assign(job,{running:true,label,total:items.length,done:0,made:0,errors:[],cur:''});(async()=>{for(const [name,fn] of items){job.cur=name;try{job.made+=await fn()}catch(e){job.errors.push(name+': '+e.message)}job.done++}job.running=false})()}
 async function makeQs(sub,n,extra){
   const old=db.posts.filter(p=>p.subject===sub&&p.type==='quiz').slice(-60).map(p=>p.text),nm=x=>x.toLowerCase().replace(/[^a-z0-9]/g,'');
-  const t=await ai(`You are a national examiner writing S3 ${sub} exam questions. Style: ${STYLE()} ${extra||''} Write ${n} question(s) in the format of a real printed exam paper: formal wording with command words (State, Name, Explain, Calculate, Describe). If a scenario helps, put it in "info" as support material: a short passage, a data table (rows separated by newlines, cells by |, first row = headings), or a described diagram. Marks 1-6. Each question on a different topic. Do NOT repeat or rephrase any of these: ${old.join(' | ')||'none'}. Reply ONLY JSON: [{"info":"support material or empty string","q":"question","marks":3,"a":"mark scheme answer"}]`);
-  let c=0;JSON.parse(t.match(/\[[\s\S]*\]/)[0]).slice(0,n).forEach(x=>{if(!x.q||old.some(o=>nm(o)===nm(x.q)))return;db.posts.push({id:id(),type:'quiz',subject:sub,no:db.posts.filter(p=>p.subject===sub&&p.type==='quiz').length+1,info:String(x.info||'').slice(0,1500),marks:Math.min(+x.marks||2,6),text:x.q,answer:x.a,author:'StudyFeed AI',status:'approved',ts:Date.now()});c++});save();return c}
+  const t=await ai(`You are a national examiner writing S3 ${sub} exam questions. Style: ${STYLE()} ${extra||''} Write ${n} question(s) in the format of a real printed exam paper: formal wording with command words (State, Name, Explain, Calculate, Describe). If a scenario helps, put it in "info" as support material: a short passage, a data table (rows separated by newlines, cells by |, first row = headings), or a described diagram. Marks 1-6. Add a "diagram" ONLY when it truly helps (circuit, windmill, rock cycle, triangle, graph axes, cell): a simple labelled SVG string, viewBox 0 0 400 240, black strokes on white, fill="none" for outlines, only line/rect/circle/ellipse/polygon/path/text, font-size 12, no scripts, no question answers in labels; otherwise empty. Each question on a different topic. Do NOT repeat or rephrase any of these: ${old.join(' | ')||'none'}. Reply ONLY JSON: [{"info":"support material or empty string","diagram":"optional simple SVG string or empty","q":"question","marks":3,"a":"mark scheme answer"}]`);
+  let c=0;JSON.parse(t.match(/\[[\s\S]*\]/)[0]).slice(0,n).forEach(x=>{if(!x.q||old.some(o=>nm(o)===nm(x.q)))return;db.posts.push({id:id(),type:'quiz',subject:sub,no:db.posts.filter(p=>p.subject===sub&&p.type==='quiz').length+1,info:String(x.info||'').slice(0,1500),diagram:cleanSvg(x.diagram),marks:Math.min(+x.marks||2,6),text:x.q,answer:x.a,author:'StudyFeed AI',status:'approved',ts:Date.now()});c++});save();return c}
 async function ytIds(q){const k=process.env.YT_API_KEY;
   if(k){const j=await(await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=10&q=${encodeURIComponent(q)}&key=${k}`)).json();return(j.items||[]).map(i=>[i.id.videoId,i.snippet.title])}
   const h=await(await fetch('https://www.youtube.com/results?search_query='+encodeURIComponent(q),{headers:{'User-Agent':'Mozilla/5.0','Accept-Language':'en'}})).text();
@@ -42,6 +46,7 @@ function generate(){const it=[];for(const sub of SUBJECTS)for(let i=1;i<=2;i++)i
 setInterval(async()=>{for(const s of db.schedules||[]){if(Date.now()-(s.last||0)<s.every*6e4)continue;s.last=Date.now();s.err='';save();try{for(const sub of s.subject==='All'?SUBJECTS:[s.subject])s.type==='video'?await addVideo(sub,s.prompt||sub+' S3 lesson'):await makeQs(sub,s.count||1,s.prompt)}catch(e){s.err=e.message;save()}}},3e4);
 setInterval(()=>{if((db.settings.key||process.env.AI_API_KEY)&&db.lastGen!==new Date().toISOString().slice(0,10))try{generate()}catch{}},36e5);
 const pub=(p,u)=>({...p,answer:undefined,likes:undefined,hasAnswer:!!p.answer,nl:(p.likes||[]).length,liked:(p.likes||[]).includes(u),nc:db.comments.filter(c=>c.post===p.id).length});
+app.use('/api',(q,r,n)=>VK&&!vReady&&!q.path.startsWith('/storage')?r.status(503).json({error:'loading'}):n());
 const hash=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return Math.abs(h%1000)/1000};
 app.get('/api/feed',(q,r)=>{const u=String(q.query.uid||''),seen=new Set((db.seen||{})[u]||[]),now=Date.now();
   const sc=p=>-(now-p.ts)/216e5+Math.log(1+(p.likes||[]).length)*2+hash(u+p.id)*4-(seen.has(p.id)?6:0);
@@ -79,5 +84,6 @@ app.post('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const b
 app.post('/api/test',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);try{r.json({ok:1,reply:await ai('Reply with: OK')})}catch(e){r.json({ok:0,error:e.message})}});
 app.post('/api/generate',A(async()=>{generate();return{started:1}}));
 app.get('/api/storage',A(async()=>({...vs,configured:!!VK,ready:vReady})));
+app.post('/api/storage/recover',A(async()=>{const l=await vList();let best=null,bn=-1,name='';for(const n of l){try{const s=await vj('/v1/fs/sign',{path:n,ttl:300}),j=await(await fetch(s.url)).json();if((j.posts||[]).length>bn){best=j;bn=j.posts.length;name=n}}catch{}}if(!best)throw Error('No readable versions in the vault ('+l.length+' found)');db={...db,...best};vReady=true;vs.count=bn;save();return{restored:name,posts:bn,versions:l.length}}));
 app.post('/api/storage/save',A(async()=>{await vaultSave();return{...vs}}));
-(async()=>{await vaultLoad();if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},6e4);app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
+(async()=>{await vaultLoad();if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},15e3);app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
