@@ -27,18 +27,20 @@ async function ai(prompt){
   return j.choices[0].message.content;
 }
 const STYLE=()=>db.settings.style||'Scenario-based, competency-based questions matching the new competency-based lower secondary curriculum: a short real-life scenario, then a question that applies knowledge.';
+const job={running:false,label:'',total:0,done:0,made:0,errors:[],cur:''};
+function runJob(label,items){if(job.running)throw Error('A job is already running, wait for it to finish');Object.assign(job,{running:true,label,total:items.length,done:0,made:0,errors:[],cur:''});(async()=>{for(const [name,fn] of items){job.cur=name;try{job.made+=await fn()}catch(e){job.errors.push(name+': '+e.message)}job.done++}job.running=false})()}
 async function makeQs(sub,n,extra){
   const old=db.posts.filter(p=>p.subject===sub&&p.type==='quiz').slice(-60).map(p=>p.text),nm=x=>x.toLowerCase().replace(/[^a-z0-9]/g,'');
-  const t=await ai(`You write S3 ${sub} quiz questions. Style: ${STYLE()} ${extra||''} Write ${n} question(s), each on a different topic. Do NOT repeat or rephrase any of these: ${old.join(' | ')||'none'}. Reply ONLY JSON: [{"q":"scenario + question","a":"answer with brief explanation"}]`);
-  let c=0;JSON.parse(t.match(/\[[\s\S]*\]/)[0]).slice(0,n).forEach(x=>{if(!x.q||old.some(o=>nm(o)===nm(x.q)))return;db.posts.push({id:id(),type:'quiz',subject:sub,text:x.q,answer:x.a,author:'StudyFeed AI',status:'approved',ts:Date.now()});c++});save();return c}
+  const t=await ai(`You are a national examiner writing S3 ${sub} exam questions. Style: ${STYLE()} ${extra||''} Write ${n} question(s) in the format of a real printed exam paper: formal wording with command words (State, Name, Explain, Calculate, Describe). If a scenario helps, put it in "info" as support material: a short passage, a data table (rows separated by newlines, cells by |, first row = headings), or a described diagram. Marks 1-6. Each question on a different topic. Do NOT repeat or rephrase any of these: ${old.join(' | ')||'none'}. Reply ONLY JSON: [{"info":"support material or empty string","q":"question","marks":3,"a":"mark scheme answer"}]`);
+  let c=0;JSON.parse(t.match(/\[[\s\S]*\]/)[0]).slice(0,n).forEach(x=>{if(!x.q||old.some(o=>nm(o)===nm(x.q)))return;db.posts.push({id:id(),type:'quiz',subject:sub,no:db.posts.filter(p=>p.subject===sub&&p.type==='quiz').length+1,info:String(x.info||'').slice(0,1500),marks:Math.min(+x.marks||2,6),text:x.q,answer:x.a,author:'StudyFeed AI',status:'approved',ts:Date.now()});c++});save();return c}
 async function ytIds(q){const k=process.env.YT_API_KEY;
   if(k){const j=await(await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=10&q=${encodeURIComponent(q)}&key=${k}`)).json();return(j.items||[]).map(i=>[i.id.videoId,i.snippet.title])}
   const h=await(await fetch('https://www.youtube.com/results?search_query='+encodeURIComponent(q),{headers:{'User-Agent':'Mozilla/5.0','Accept-Language':'en'}})).text();
   return [...new Set([...h.matchAll(/"videoId":"([\w-]{11})"/g)].map(m=>m[1]))].slice(0,10).map(i=>[i,''])}
 async function addVideo(sub,q){const used=db.posts.map(p=>p.video||''),l=(await ytIds(q)).find(v=>!used.some(u=>u.includes(v[0])));if(!l)throw Error('No new video found');db.posts.push({id:id(),type:'video',subject:sub,text:'📺 '+(l[1]||q),video:'https://youtu.be/'+l[0],author:'StudyFeed',status:'approved',ts:Date.now()});save()}
-async function generate(){const out=[];for(const sub of SUBJECTS){try{await makeQs(sub,2)}catch(e){out.push(sub+': '+e.message)}}db.lastGen=new Date().toISOString().slice(0,10);save();return out}
+function generate(){const it=[];for(const sub of SUBJECTS)for(let i=1;i<=2;i++)it.push([sub+' #'+i,()=>makeQs(sub,1)]);db.lastGen=new Date().toISOString().slice(0,10);save();runJob('Daily quizzes',it)}
 setInterval(async()=>{for(const s of db.schedules||[]){if(Date.now()-(s.last||0)<s.every*6e4)continue;s.last=Date.now();s.err='';save();try{for(const sub of s.subject==='All'?SUBJECTS:[s.subject])s.type==='video'?await addVideo(sub,s.prompt||sub+' S3 lesson'):await makeQs(sub,s.count||1,s.prompt)}catch(e){s.err=e.message;save()}}},3e4);
-setInterval(()=>{if(db.settings.key&&db.lastGen!==new Date().toISOString().slice(0,10))generate()},36e5);
+setInterval(()=>{if((db.settings.key||process.env.AI_API_KEY)&&db.lastGen!==new Date().toISOString().slice(0,10))try{generate()}catch{}},36e5);
 const pub=(p,u)=>({...p,answer:undefined,likes:undefined,hasAnswer:!!p.answer,nl:(p.likes||[]).length,liked:(p.likes||[]).includes(u),nc:db.comments.filter(c=>c.post===p.id).length});
 const hash=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return Math.abs(h%1000)/1000};
 app.get('/api/feed',(q,r)=>{const u=String(q.query.uid||''),seen=new Set((db.seen||{})[u]||[]),now=Date.now();
@@ -46,7 +48,8 @@ app.get('/api/feed',(q,r)=>{const u=String(q.query.uid||''),seen=new Set((db.see
   r.json(db.posts.filter(p=>p.status==='approved').map(p=>[sc(p),p]).sort((a,b)=>b[0]-a[0]).slice(0,150).map(x=>pub(x[1],u)))});
 app.post('/api/seen',(q,r)=>{const u=String(q.body.uid||'');db.seen=db.seen||{};db.seen[u]=[...new Set([...(db.seen[u]||[]),...(q.body.ids||[]).slice(0,30)])].slice(-300);save();r.sendStatus(204)});
 const A=f=>async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);try{r.json(await f(q))}catch(e){r.json({error:e.message})}};
-app.post('/api/ai-post',A(async q=>({n:await makeQs(q.body.subject||'Mathematics',Math.min(+q.body.count||1,10),String(q.body.prompt||'').slice(0,800))})));
+app.post('/api/ai-post',A(async q=>{const sub=q.body.subject||'Mathematics',n=Math.min(+q.body.count||1,10),ex=String(q.body.prompt||'').slice(0,800);runJob('Questions',Array.from({length:n},(_,i)=>[sub+' #'+(i+1),()=>makeQs(sub,1,ex)]));return{started:1}}));
+app.get('/api/job',A(async()=>job));
 app.post('/api/video',A(async q=>{await addVideo(q.body.subject||'General',String(q.body.query||'').slice(0,200));return{ok:1}}));
 app.get('/api/schedules',A(async()=>db.schedules||[]));
 app.post('/api/schedules',A(async q=>{const b=q.body;db.schedules=db.schedules||[];db.schedules.push({id:id(),type:b.type==='video'?'video':'quiz',subject:b.subject||'All',every:Math.max(1,+b.every||60),count:Math.min(+b.count||1,5),prompt:String(b.prompt||'').slice(0,500),last:0});save();return{ok:1}}));
@@ -74,7 +77,7 @@ app.post('/api/explain',async(q,r)=>{try{r.json({text:await ai('Explain this sim
 app.get('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const s=db.settings;r.json({...s,key:process.env.AI_API_KEY?'••••(from Render env)':s.key?'••••'+s.key.slice(-4):''})});
 app.post('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const b=q.body;if(b.base)db.settings.base=b.base;if(b.model)db.settings.model=b.model;if(b.key)db.settings.key=b.key;if(typeof b.style==='string')db.settings.style=b.style;save();r.json({ok:1})});
 app.post('/api/test',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);try{r.json({ok:1,reply:await ai('Reply with: OK')})}catch(e){r.json({ok:0,error:e.message})}});
-app.post('/api/generate',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);r.json({errors:await generate()})});
+app.post('/api/generate',A(async()=>{generate();return{started:1}}));
 app.get('/api/storage',A(async()=>({...vs,configured:!!VK,ready:vReady})));
 app.post('/api/storage/save',A(async()=>{await vaultSave();return{...vs}}));
 (async()=>{await vaultLoad();if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},6e4);app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
