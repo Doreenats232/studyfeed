@@ -21,9 +21,9 @@ const isAdmin=r=>r.headers['x-admin']===ADMIN;
 const SUBJECTS=['Mathematics','English','Physics','Chemistry','Biology','History','Geography','ICT'];
 const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 async function ai(prompt){
-  const s={...db.settings};if(process.env.AI_API_KEY)s.key=process.env.AI_API_KEY;if(process.env.AI_BASE_URL)s.base=process.env.AI_BASE_URL;if(process.env.AI_MODEL)s.model=process.env.AI_MODEL;if(!s.key)throw Error('Set your API key in Settings');
-  const r=await fetch(s.base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify({model:s.model,messages:[{role:'user',content:prompt}]})});
-  const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error?.message||'AI error '+r.status);
+  const s={...db.settings};if(process.env.AI_API_KEY)s.key=process.env.AI_API_KEY;if(process.env.AI_BASE_URL)s.base=process.env.AI_BASE_URL;if(process.env.AI_MODEL)s.model=process.env.AI_MODEL;if(!s.key)throw Error('Set your API key in Settings');let bu=s.base.replace(/\/$/,'');if(!/\/v\d+$/.test(bu))bu+='/v1';
+  const r=await fetch(bu+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.key},body:JSON.stringify({model:s.model,messages:[{role:'user',content:prompt}]})});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Error((j.error?.message||j.message||'AI error')+' ['+r.status+' '+bu+'/chat/completions, model '+s.model+']');
   return j.choices[0].message.content;
 }
 const STYLE=()=>db.settings.style||'Scenario-based, competency-based questions matching the new competency-based lower secondary curriculum: a short real-life scenario, then a question that applies knowledge.';
