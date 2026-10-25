@@ -4,7 +4,7 @@ const F=process.env.DATA_FILE||'data.json',ADMIN=process.env.ADMIN_PASSWORD||'ad
 let db={settings:{base:'https://relayapi-c5ah.onrender.com/v1',key:'',model:'gpt-4o'},posts:[],comments:[],notes:[],lastGen:'',schedules:[],seen:{}};
 try{db={...db,...JSON.parse(fs.readFileSync(F))}}catch{}
 const VU=(process.env.VAULT_URL||'https://terabox-vault-backend-1.onrender.com').replace(/\/$/,''),VK=process.env.VAULT_KEY;
-const vs={ok:false,last:0,err:VK?'':'VAULT_KEY not set',file:''};let vReady=!VK,vBusy=false,vDirty=false,vT;
+const vs={ok:false,last:0,err:VK?'':'VAULT_KEY not set',file:''};let vDeg=false,vReady=!VK,vBusy=false,vDirty=false,vT;
 const vf=(p,o={})=>fetch(VU+p,{...o,headers:{'X-Api-Key':VK,...(o.headers||{})}});
 const vj=async(p,b)=>{const r=await vf(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),t=await r.text();let j={};try{j=JSON.parse(t)}catch{}if(!r.ok)throw Error(p+' '+r.status+' '+t.slice(0,100));return j};
 const vList=async()=>{const r=await vf('/v1/fs/list');if(!r.ok)throw Error('list '+r.status);const j=await r.json(),a=Array.isArray(j)?j:(j.files||j.items||j.list||j.entries||[]);return a.map(x=>String(x.name||x.filename||x.server_filename||x.path||x).split('/').pop()).filter(n=>/^studyfeed-db-\d+\.json$/.test(n)).sort()};
@@ -16,8 +16,9 @@ async function vaultSave(){if(!VK||!vReady)return;if(vBusy){vDirty=true;return}v
     if(db.posts.length>=(vs.count||0))for(const o of l.slice(0,-10))await vj('/v1/fs/delete',{path:o,paths:[o]}).catch(()=>{});vs.count=db.posts.length;vs.files=l.length;
   }catch(e){vs.ok=false;vs.err=e.message}finally{vBusy=false;if(vDirty){vDirty=false;vaultSave()}}}
 const save=()=>{try{fs.writeFileSync(F,JSON.stringify(db))}catch{}if(VK){clearTimeout(vT);vT=setTimeout(vaultSave,5000)}};
+const vMerge=(a,b)=>{const u=(x,y)=>[...new Map([...(y||[]),...(x||[])].map(i=>[i.id,i])).values()];return{...a,...b,posts:u(a.posts,b.posts),comments:u(a.comments,b.comments),notes:u(a.notes,b.notes),schedules:u(a.schedules,b.schedules),settings:{...a.settings,...b.settings}}};
 async function vGet(n){const s=await vj('/v1/fs/sign',{path:n,ttl:300}),u=/^https?:/.test(s.url)?s.url:VU+s.url,r=await fetch(u,{redirect:'follow'}),t=(await r.text()).replace(/^\uFEFF/,'');if(!r.ok)throw Error(`download ${r.status}: ${t.slice(0,80)}`);try{return JSON.parse(t)}catch{throw Error(`file is not JSON (${r.status}, ${t.length} bytes): ${t.slice(0,60)}`)}}
-async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}let j,n,e1='';for(const f of [...l].reverse()){try{j=await vGet(f);n=f;break}catch(e){e1=e1||('load '+f+': '+e.message)}}if(!j)throw Error(e1);db={...db,...j};vReady=true;vs.ok=true;vs.err=e1;vs.file=n;vs.last=Date.now();vs.count=(db.posts||[]).length;vs.files=l.length}catch(e){vs.err=e.message}}
+async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}let j,n,e1='';for(const f of [...l].reverse()){try{j=await vGet(f);n=f;break}catch(e){e1=e1||('load '+f+': '+e.message)}}if(!j)throw Error(e1);db=vMerge(db,j);vReady=true;vs.ok=true;vs.err=e1;vs.file=n;vs.last=Date.now();vs.count=(db.posts||[]).length;vs.files=l.length}catch(e){vs.err=e.message}}
 const isAdmin=r=>r.headers['x-admin']===ADMIN;
 const SUBJECTS=['Mathematics','English','Physics','Chemistry','Biology','History','Geography','ICT'];
 const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -47,7 +48,7 @@ function generate(){const it=[];for(const sub of SUBJECTS)for(let i=1;i<=2;i++)i
 setInterval(async()=>{for(const s of db.schedules||[]){if(Date.now()-(s.last||0)<s.every*6e4)continue;s.last=Date.now();s.err='';save();try{for(const sub of s.subject==='All'?SUBJECTS:[s.subject])s.type==='video'?await addVideo(sub,s.prompt||sub+' S3 lesson'):await makeQs(sub,s.count||1,s.prompt)}catch(e){s.err=e.message;save()}}},3e4);
 setInterval(()=>{if((db.settings.key||process.env.AI_API_KEY)&&db.lastGen!==new Date().toISOString().slice(0,10))try{generate()}catch{}},36e5);
 const pub=(p,u)=>({...p,uid:undefined,mine:!!u&&p.uid===u,answer:undefined,likes:undefined,hasAnswer:!!p.answer,nl:(p.likes||[]).length,liked:(p.likes||[]).includes(u),nc:db.comments.filter(c=>c.post===p.id).length});
-app.use('/api',(q,r,n)=>VK&&!vReady&&!q.path.startsWith('/storage')?r.status(503).json({error:'loading'}):n());
+app.use('/api',(q,r,n)=>VK&&!vReady&&!vDeg&&!q.path.startsWith('/storage')&&!(q.method==='GET'&&q.path==='/settings')?r.status(503).json({error:'loading'}):n());
 const hash=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return Math.abs(h%1000)/1000};
 app.get('/api/feed',(q,r)=>{const u=String(q.query.uid||''),seen=new Set((db.seen||{})[u]||[]),now=Date.now();
   const sc=p=>-(now-p.ts)/216e5+Math.log(1+(p.likes||[]).length)*2+hash(u+p.id)*4-(seen.has(p.id)?6:0);
@@ -102,4 +103,4 @@ app.post('/api/storage/test',A(async()=>{const o=[],name='studyfeed-test-'+Date.
  await T('delete',async()=>JSON.stringify(await vj('/v1/fs/delete',{path:name,paths:[name]})).slice(0,120));
  o.push('app sees: '+JSON.stringify(await vList().catch(e=>e.message))+' | ready='+vReady+' | err='+vs.err);return{steps:o}}));
 app.post('/api/storage/save',A(async()=>{await vaultSave();return{...vs}}));
-(async()=>{await vaultLoad();if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},15e3);app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
+(async()=>{await vaultLoad();if(VK&&!vReady)setTimeout(()=>{if(!vReady)vDeg=true},9e4);if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},15e3);app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
