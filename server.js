@@ -41,11 +41,16 @@ function cleanSvg(s){s=String(s||'').trim();if(!/^<svg[\s>]/i.test(s))return'';s
   if(!/viewBox=/.test(s))s=s.replace('<svg','<svg viewBox="0 0 400 240"');return s}
 const STYLE=()=>db.settings.style||'Scenario-based, competency-based questions matching the new competency-based lower secondary curriculum: a short real-life scenario, then a question that applies knowledge.';
 const job={running:false,label:'',total:0,done:0,made:0,errors:[],cur:''};
-function runJob(label,items){if(job.running)throw Error('A job is already running, wait for it to finish');Object.assign(job,{running:true,label,total:items.length,done:0,made:0,errors:[],cur:''});(async()=>{for(const [name,fn] of items){job.cur=name;try{job.made+=await fn()}catch(e){job.errors.push(name+': '+e.message)}job.done++}job.running=false})()}
+function runJob(label,items,unit){if(job.running)throw Error('A job is already running, wait for it to finish');Object.assign(job,{running:true,unit:unit||'made',label,total:items.length,done:0,made:0,errors:[],cur:''});(async()=>{for(const [name,fn] of items){job.cur=name;try{job.made+=await fn()}catch(e){job.errors.push(name+': '+e.message)}job.done++}job.running=false})()}
 async function makeQs(sub,n,extra){
   const old=db.posts.filter(p=>p.subject===sub&&p.type==='quiz').slice(-60).map(p=>p.text),nm=x=>x.toLowerCase().replace(/[^a-z0-9]/g,'');
   const t=await ai(`You are a national examiner writing S3 ${sub} exam questions. Style: ${STYLE()} ${extra||''} ${sub==='Kiswahili'?'Write the questions in Kiswahili. ':''}Write ${n} question(s) in the format of a real printed exam paper: formal wording with command words (State, Name, Explain, Calculate, Describe). If a scenario helps, put it in "info" as support material: a short passage, a data table (rows separated by newlines, cells by |, first row = headings), or a described diagram. Marks 1-6. Add a "diagram" ONLY when it truly helps (circuit, windmill, rock cycle, triangle, graph axes, cell): a simple labelled SVG string, viewBox 0 0 400 240, black strokes on white, fill="none" for outlines, only line/rect/circle/ellipse/polygon/path/text, font-size 12, no scripts, no question answers in labels; otherwise empty. Each question on a different topic. Do NOT repeat or rephrase any of these: ${old.join(' | ')||'none'}. Reply ONLY JSON: [{"info":"support material or empty string","diagram":"optional simple SVG string or empty","q":"question","marks":3,"a":"mark scheme answer"}]`);
   let c=0;JSON.parse(t.match(/\[[\s\S]*\]/)[0]).slice(0,n).forEach(x=>{if(!x.q||old.some(o=>nm(o)===nm(x.q)))return;db.posts.push({id:id(),type:'quiz',subject:sub,no:db.posts.filter(p=>p.subject===sub&&p.type==='quiz').length+1,info:String(x.info||'').slice(0,1500),diagram:cleanSvg(x.diagram),marks:Math.min(+x.marks||2,6),text:x.q,answer:x.a,author:'StudyFeed AI',status:'approved',ts:Date.now()});c++});save();return c}
+const yid=u=>((u||'').match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/)||[])[1];
+async function cleanOne(p){let rm=0;if(yid(p.video)){const c=await ytCheck(yid(p.video));if(c.gone){db.posts=db.posts.filter(x=>x!==p);save();return 1}}
+  if(p.media){const keep=[];for(const m of p.media){const i=m.t==='vid'&&yid(m.u);if(i){const c=await ytCheck(i);if(c.gone){rm++;continue}}keep.push(m)}if(rm){p.media=keep;if(!keep.length&&!p.text)db.posts=db.posts.filter(x=>x!==p);save()}}
+  return rm}
+function cleanVideos(){const L=db.posts.filter(p=>yid(p.video)||(p.media||[]).some(m=>m.t==='vid'&&yid(m.u)));runJob('Checking videos',L.map(p=>[(p.text||'video').slice(0,28),()=>cleanOne(p)]),'removed');return L.length}
 async function ytIds(q){const k=process.env.YT_API_KEY;
   if(k){const j=await(await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=10&q=${encodeURIComponent(q)}&key=${k}`)).json();return(j.items||[]).map(i=>[i.id.videoId,i.snippet.title])}
   const h=await(await fetch('https://www.youtube.com/results?search_query='+encodeURIComponent(q),{headers:{'User-Agent':'Mozilla/5.0','Accept-Language':'en'}})).text();
@@ -101,7 +106,7 @@ app.get('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const s=
 app.post('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const b=q.body;if(b.base)db.settings.base=b.base;if(b.model)db.settings.model=b.model;if(b.key)db.settings.key=b.key;if(typeof b.style==='string')db.settings.style=b.style;save();r.json({ok:1})});
 app.post('/api/test',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);try{r.json({ok:1,reply:await ai('Reply with: OK')})}catch(e){r.json({ok:0,error:e.message})}});
 app.post('/api/generate',A(async()=>{generate();return{started:1}}));
-app.post('/api/clean-videos',A(async()=>{let rm=0,kept=0,unk=0;for(const p of [...db.posts]){const m=(p.video||'').match(/(?:youtu\.be\/|v=)([\w-]{11})/);if(!m)continue;const c=await ytCheck(m[1]);if(c.ok)kept++;else if(c.gone){db.posts=db.posts.filter(x=>x!==p);rm++}else unk++}save();return{removed:rm,kept,unknown:unk}}));
+app.post('/api/clean-videos',A(async()=>({started:cleanVideos()})));
 app.get('/api/storage',A(async()=>({...vs,configured:!!VK,ready:vReady})));
 app.post('/api/storage/recover',A(async()=>{const l=await vList();let best=null,bn=-1,name='',e1='';for(const n of l){try{const j=await vGet(n);if((j.posts||[]).length>bn){best=j;bn=j.posts.length;name=n}}catch(e){e1=e1||e.message}}if(!best)throw Error(`No readable versions (${l.length} found). ${e1}`);db={...db,...best};vReady=true;vs.count=bn;save();return{restored:name,posts:bn,versions:l.length}}));
 app.get('/api/storage/status',(q,r)=>r.json({ready:vReady,err:vs.err}));
@@ -115,4 +120,5 @@ app.post('/api/storage/test',A(async()=>{const o=[],name='studyfeed-test-'+Date.
  await T('delete',async()=>JSON.stringify(await vj('/v1/fs/delete',{path:name,paths:[name]})).slice(0,120));
  o.push('app sees: '+JSON.stringify(await vList().catch(e=>e.message))+' | ready='+vReady+' | err='+vs.err);return{steps:o}}));
 app.post('/api/storage/save',A(async()=>{await vaultSave();return{...vs}}));
-(async()=>{await vaultLoad();migrate();if(VK&&!vReady)setTimeout(()=>{if(!vReady)vDeg=true},9e4);if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},15e3);app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
+(async()=>{await vaultLoad();migrate();if(VK&&!vReady)setTimeout(()=>{if(!vReady)vDeg=true},9e4);if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},15e3);const autoClean=k=>setTimeout(()=>{if(!vReady&&k<5)return autoClean(k+1);try{cleanVideos()}catch{}},45e3);autoClean(0);
+app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
