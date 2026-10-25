@@ -3,22 +3,27 @@ const app=express();app.use(express.json({limit:'2mb'}));app.use(express.static(
 const F=process.env.DATA_FILE||'data.json',ADMIN=process.env.ADMIN_PASSWORD||'admin123';
 let db={settings:{base:'https://relayapi-c5ah.onrender.com/v1',key:'',model:'gpt-4o'},posts:[],comments:[],notes:[],lastGen:'',schedules:[],seen:{}};
 try{db={...db,...JSON.parse(fs.readFileSync(F))}}catch{}
+const zlib=require('zlib');
 const VU=(process.env.VAULT_URL||'https://terabox-vault-backend-1.onrender.com').replace(/\/$/,''),VK=process.env.VAULT_KEY;
 const vs={ok:false,last:0,err:VK?'':'VAULT_KEY not set',file:''};let vDeg=false,vReady=!VK,vBusy=false,vDirty=false,vT;
 const vf=(p,o={})=>fetch(VU+p,{...o,headers:{'X-Api-Key':VK,...(o.headers||{})}});
 const vj=async(p,b)=>{const r=await vf(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}),t=await r.text();let j={};try{j=JSON.parse(t)}catch{}if(!r.ok)throw Error(p+' '+r.status+' '+t.slice(0,100));return j};
-const vList=async()=>{const r=await vf('/v1/fs/list');if(!r.ok)throw Error('list '+r.status);const j=await r.json(),a=Array.isArray(j)?j:(j.files||j.items||j.list||j.entries||[]);return a.map(x=>String(x.name||x.filename||x.server_filename||x.path||x).split('/').pop()).filter(n=>/^studyfeed-db-\d+\.json$/.test(n)).sort()};
+const vList=async()=>{const r=await vf('/v1/fs/list');if(!r.ok)throw Error('list '+r.status);const j=await r.json(),a=Array.isArray(j)?j:(j.files||j.items||j.list||j.entries||[]);return a.map(x=>String(x.name||x.filename||x.server_filename||x.path||x).split('/').pop()).filter(n=>/^studyfeed-db-\d+\.(json|bin)$/.test(n)).sort((a,b)=>a.match(/\d+/)[0]-b.match(/\d+/)[0])};
 async function vaultSave(){if(!VK||!vReady)return;if(vBusy){vDirty=true;return}vBusy=true;
-  try{const name=`studyfeed-db-${Date.now()}.json`,fd=new FormData();fd.append('file',new Blob([JSON.stringify(db)],{type:'application/json'}),name);
+  try{const name=`studyfeed-db-${Date.now()}.bin`,fd=new FormData();fd.append('file',new Blob([zlib.gzipSync(JSON.stringify(db))],{type:'application/octet-stream'}),name);
     const r=await vf('/v1/upload',{method:'POST',body:fd});if(!r.ok)throw Error('upload '+r.status+' '+(await r.text()).slice(0,100));
-    const l=await vList();if(!l.includes(name))throw Error('uploaded but not found in vault');
+    const l=await vList();if(!l.includes(name))throw Error('uploaded but not found in vault');await vGet(name).catch(e=>{throw Error('saved but cannot be read back: '+e.message)});
     vs.ok=true;vs.err='';vs.last=Date.now();vs.file=name;
     if(db.posts.length>=(vs.count||0))for(const o of l.slice(0,-10))await vj('/v1/fs/delete',{path:o,paths:[o]}).catch(()=>{});vs.count=db.posts.length;vs.files=l.length;
   }catch(e){vs.ok=false;vs.err=e.message}finally{vBusy=false;if(vDirty){vDirty=false;vaultSave()}}}
 const save=()=>{try{fs.writeFileSync(F,JSON.stringify(db))}catch{}if(VK){clearTimeout(vT);vT=setTimeout(vaultSave,5000)}};
 const vMerge=(a,b)=>{const u=(x,y)=>[...new Map([...(y||[]),...(x||[])].map(i=>[i.id,i])).values()];return{...a,...b,posts:u(a.posts,b.posts),comments:u(a.comments,b.comments),notes:u(a.notes,b.notes),schedules:u(a.schedules,b.schedules),settings:{...a.settings,...b.settings}}};
-async function vGet(n){const s=await vj('/v1/fs/sign',{path:n,ttl:300}),u=/^https?:/.test(s.url)?s.url:VU+s.url,r=await fetch(u,{redirect:'follow'}),t=(await r.text()).replace(/^\uFEFF/,'');if(!r.ok)throw Error(`download ${r.status}: ${t.slice(0,80)}`);try{return JSON.parse(t)}catch{throw Error(`file is not JSON (${r.status}, ${t.length} bytes): ${t.slice(0,60)}`)}}
-async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}let j,n,e1='';for(const f of [...l].reverse()){try{j=await vGet(f);n=f;break}catch(e){e1=e1||('load '+f+': '+e.message)}}if(!j)throw Error(e1);db=vMerge(db,j);vReady=true;vs.ok=true;vs.err=e1;vs.file=n;vs.last=Date.now();vs.count=(db.posts||[]).length;vs.files=l.length}catch(e){vs.err=e.message}}
+async function vGet(n){const s=await vj('/v1/fs/sign',{path:n,ttl:300}),u=/^https?:/.test(s.url)?s.url:VU+s.url,r=await fetch(u,{redirect:'follow'}),b=Buffer.from(await r.arrayBuffer());
+  if(r.ok&&n.endsWith('.bin')){try{return JSON.parse(zlib.gunzipSync(b).toString())}catch{throw Error('perm: bad .bin ('+b.length+' bytes)')}}
+  const t=b.toString().replace(/^\uFEFF/,'');
+  if(!r.ok){try{const d=JSON.parse(t).detail;if(typeof d==='string')return JSON.parse(d)}catch{}throw Error((r.status===502?'perm: ':'')+`download ${r.status}: ${t.slice(0,80)}`)}
+  try{return JSON.parse(t)}catch{throw Error('perm: not JSON ('+t.length+' bytes)')}}
+async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}let j,n,e1='',pa=true;for(const f of [...l].reverse()){try{j=await vGet(f);n=f;break}catch(e){if(!/^perm/.test(e.message))pa=false;e1=e1||('load '+f+': '+e.message)}}if(!j){if(pa){vReady=true;vs.err='Old saves unreadable (still in vault). '+e1;return}throw Error(e1)}db=vMerge(db,j);vReady=true;vs.ok=true;vs.err=e1;vs.file=n;vs.last=Date.now();vs.count=(db.posts||[]).length;vs.files=l.length}catch(e){vs.err=e.message}}
 const isAdmin=r=>r.headers['x-admin']===ADMIN;
 const SUBJECTS=['Mathematics','English','Physics','Chemistry','Biology','History','Geography','ICT'];
 const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -94,12 +99,13 @@ app.post('/api/generate',A(async()=>{generate();return{started:1}}));
 app.get('/api/storage',A(async()=>({...vs,configured:!!VK,ready:vReady})));
 app.post('/api/storage/recover',A(async()=>{const l=await vList();let best=null,bn=-1,name='',e1='';for(const n of l){try{const j=await vGet(n);if((j.posts||[]).length>bn){best=j;bn=j.posts.length;name=n}}catch(e){e1=e1||e.message}}if(!best)throw Error(`No readable versions (${l.length} found). ${e1}`);db={...db,...best};vReady=true;vs.count=bn;save();return{restored:name,posts:bn,versions:l.length}}));
 app.get('/api/storage/status',(q,r)=>r.json({ready:vReady,err:vs.err}));
-app.post('/api/storage/test',A(async()=>{const o=[],name='studyfeed-test-'+Date.now()+'.json',T=async(n,f)=>{try{o.push('✅ '+n+': '+await f())}catch(e){o.push('❌ '+n+': '+e.message)}};
+app.post('/api/storage/test',A(async()=>{const o=[],name='studyfeed-test-'+Date.now()+'.bin',T=async(n,f)=>{try{o.push('✅ '+n+': '+await f())}catch(e){o.push('❌ '+n+': '+e.message)}};
  await T('list',async()=>{const r=await vf('/v1/fs/list');return r.status+' '+(await r.text()).slice(0,200)});
- await T('upload',async()=>{const fd=new FormData();fd.append('file',new Blob(['{"ok":1}'],{type:'application/json'}),name);const r=await vf('/v1/upload',{method:'POST',body:fd});return r.status+' '+(await r.text()).slice(0,200)});
+ await T('upload',async()=>{const fd=new FormData();fd.append('file',new Blob([zlib.gzipSync('{"ok":1}')],{type:'application/octet-stream'}),name);const r=await vf('/v1/upload',{method:'POST',body:fd});return r.status+' '+(await r.text()).slice(0,200)});
  await T('list after',async()=>{const r=await vf('/v1/fs/list');return (await r.text()).slice(0,300)});
  let u;await T('sign',async()=>{const s=await vj('/v1/fs/sign',{path:name,ttl:120});u=s.url;return JSON.stringify(s).slice(0,160)});
  if(u)await T('download',async()=>{const r=await fetch(/^https?:/.test(u)?u:VU+u),t=await r.text();return r.status+' '+(r.headers.get('content-type')||'')+' '+t.length+' bytes: '+t.slice(0,60)});
+ await T('readback',async()=>JSON.stringify(await vGet(name)));
  await T('delete',async()=>JSON.stringify(await vj('/v1/fs/delete',{path:name,paths:[name]})).slice(0,120));
  o.push('app sees: '+JSON.stringify(await vList().catch(e=>e.message))+' | ready='+vReady+' | err='+vs.err);return{steps:o}}));
 app.post('/api/storage/save',A(async()=>{await vaultSave();return{...vs}}));
