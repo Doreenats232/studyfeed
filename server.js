@@ -63,12 +63,12 @@ setInterval(()=>{if((db.settings.key||process.env.AI_API_KEY)&&db.lastGen!==new 
 const pub=(p,u)=>({...p,uid:undefined,mine:!!u&&p.uid===u,answer:undefined,likes:undefined,hasAnswer:!!p.answer,nl:(p.likes||[]).length,liked:(p.likes||[]).includes(u),nc:db.comments.filter(c=>c.post===p.id).length});
 app.use('/api',(q,r,n)=>VK&&!vReady&&!vDeg&&!q.path.startsWith('/storage')&&!(q.method==='GET'&&q.path==='/settings')?r.status(503).json({error:'loading'}):n());
 const hash=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return Math.abs(h%1000)/1000};
-app.get('/api/feed',(q,r)=>{const u=String(q.query.uid||''),seen=new Set((db.seen||{})[u]||[]),now=Date.now(),hide=new Set(String(q.query.hide||'').split('|').filter(Boolean)),only=String(q.query.only||'');
+app.get('/api/feed',(q,r)=>{const u=String(q.query.uid||''),seen=new Set((db.seen||{})[u]||[]),now=Date.now(),hide=new Set(String(q.query.hide||'').split('|').filter(Boolean)),only=String(q.query.only||''),qq=String(q.query.q||'').toLowerCase().slice(0,60);
   const sc=p=>-(now-p.ts)/216e5+Math.log(1+(p.likes||[]).length)*2+hash(u+p.id)*4-(seen.has(p.id)?6:0),kind=p=>(p.media||[]).some(x=>x.t==='vid')||(p.video&&!(p.media||[]).length)?'v':(p.media||[]).length?'i':'q';
-  const L=db.posts.filter(p=>p.status==='approved'&&!hide.has(p.subject)&&(!only||p.subject===only)).map(p=>[sc(p),p]).sort((a,b)=>b[0]-a[0]).map(x=>x[1]),B={q:[],v:[],i:[]},out=[],ord=['v','q','i','q','v','i'];L.forEach(p=>B[kind(p)].push(p));let k=0;
-  while(out.length<150&&(B.q.length||B.v.length||B.i.length)){const b=B[ord[k++%6]];if(b.length)out.push(b.shift())}
-  r.json(out.map(p=>pub(p,u)))});
-app.post('/api/seen',(q,r)=>{const u=String(q.body.uid||'');db.seen=db.seen||{};db.seen[u]=[...new Set([...(db.seen[u]||[]),...(q.body.ids||[]).slice(0,30)])].slice(-300);save();r.sendStatus(204)});
+  const L=db.posts.filter(p=>p.status==='approved'&&!hide.has(p.subject)&&(!only||p.subject===only)&&(!qq||(p.text+' '+p.subject).toLowerCase().includes(qq))).map(p=>[sc(p),p]).sort((a,b)=>b[0]-a[0]).map(x=>x[1]),B={q:[],v:[],i:[]},out=[],ord=['v','q','i','q','v','i'];L.forEach(p=>B[kind(p)].push(p));let k=0;
+  while(out.length<1000&&(B.q.length||B.v.length||B.i.length)){const b=B[ord[k++%6]];if(b.length)out.push(b.shift())}
+  const off=Math.max(0,+q.query.off||0),lim=Math.min(30,+q.query.limit||8);r.json(out.slice(off,off+lim).map(p=>pub(p,u)))});
+app.post('/api/seen',(q,r)=>{const u=String(q.body.uid||'');db.seen=db.seen||{};db.seen[u]=[...new Set([...(db.seen[u]||[]),...(q.body.ids||[]).slice(0,100)])].slice(-600);save();r.sendStatus(204)});
 const A=f=>async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);try{r.json(await f(q))}catch(e){r.json({error:e.message})}};
 app.post('/api/ai-post',A(async q=>{const sub=q.body.subject||'Mathematics',n=Math.min(+q.body.count||1,10),ex=String(q.body.prompt||'').slice(0,800);runJob('Questions',Array.from({length:n},(_,i)=>[sub+' #'+(i+1),()=>makeQs(sub,1,ex)]));return{started:1}}));
 app.get('/api/job',A(async()=>job));
