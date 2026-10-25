@@ -45,7 +45,7 @@ async function addVideo(sub,q){const used=db.posts.map(p=>p.video||''),l=(await 
 function generate(){const it=[];for(const sub of SUBJECTS)for(let i=1;i<=2;i++)it.push([sub+' #'+i,()=>makeQs(sub,1)]);db.lastGen=new Date().toISOString().slice(0,10);save();runJob('Daily quizzes',it)}
 setInterval(async()=>{for(const s of db.schedules||[]){if(Date.now()-(s.last||0)<s.every*6e4)continue;s.last=Date.now();s.err='';save();try{for(const sub of s.subject==='All'?SUBJECTS:[s.subject])s.type==='video'?await addVideo(sub,s.prompt||sub+' S3 lesson'):await makeQs(sub,s.count||1,s.prompt)}catch(e){s.err=e.message;save()}}},3e4);
 setInterval(()=>{if((db.settings.key||process.env.AI_API_KEY)&&db.lastGen!==new Date().toISOString().slice(0,10))try{generate()}catch{}},36e5);
-const pub=(p,u)=>({...p,answer:undefined,likes:undefined,hasAnswer:!!p.answer,nl:(p.likes||[]).length,liked:(p.likes||[]).includes(u),nc:db.comments.filter(c=>c.post===p.id).length});
+const pub=(p,u)=>({...p,uid:undefined,mine:!!u&&p.uid===u,answer:undefined,likes:undefined,hasAnswer:!!p.answer,nl:(p.likes||[]).length,liked:(p.likes||[]).includes(u),nc:db.comments.filter(c=>c.post===p.id).length});
 app.use('/api',(q,r,n)=>VK&&!vReady&&!q.path.startsWith('/storage')?r.status(503).json({error:'loading'}):n());
 const hash=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))|0;return Math.abs(h%1000)/1000};
 app.get('/api/feed',(q,r)=>{const u=String(q.query.uid||''),seen=new Set((db.seen||{})[u]||[]),now=Date.now();
@@ -66,10 +66,16 @@ app.get('/api/posts/:id/comments',(q,r)=>r.json(db.comments.filter(c=>c.post===q
 app.post('/api/posts/:id/comments',(q,r)=>{const c={id:id(),post:q.params.id,name:String(q.body.name||'anon').slice(0,30),text:String(q.body.text||'').slice(0,500),ts:Date.now()};if(!c.text)return r.sendStatus(400);db.comments.push(c);save();r.json(c)});
 app.post('/api/posts',(q,r)=>{
   const b=q.body,a=isAdmin(q);if(!b.text)return r.sendStatus(400);
-  db.posts.push({id:id(),type:b.type||'question',subject:b.subject||'General',text:String(b.text).slice(0,2000),answer:a?b.answer:'',video:b.video||'',author:a?'Admin':String(b.name||'anon').slice(0,30),uid:b.uid,status:a?'approved':'pending',ts:Date.now()});
+  db.posts.push({id:id(),type:b.type||'question',subject:b.subject||'General',text:String(b.text).slice(0,2000),answer:a?b.answer:'',video:b.video||'',author:a?'Admin':String(b.name||'anon').slice(0,30),uid:b.uid,pin:!!b.pin&&(b.type||'question')!=='quiz',status:a?'approved':'pending',ts:Date.now()});
   save();r.json({ok:1,pending:!a});
 });
 app.post('/api/posts/:id/like',(q,r)=>{const p=db.posts.find(x=>x.id===q.params.id);if(!p)return r.sendStatus(404);p.likes=p.likes||[];const i=p.likes.indexOf(q.body.uid);i<0?p.likes.push(q.body.uid):p.likes.splice(i,1);save();r.json({n:p.likes.length,liked:i<0})});
+app.post('/api/posts/:id/explain',async(q,r)=>{const p=db.posts.find(x=>x.id===q.params.id);if(!p)return r.sendStatus(404);
+  if(p.pin&&p.explain)return r.json({text:p.explain,pinned:true});
+  try{const t=await ai('Explain this simply for an S3 student:\n'+[p.info,p.text,p.video?'(video: '+p.video+')':''].join('\n').slice(0,1800));
+    if(p.pin&&p.type!=='quiz'){p.explain=t;save();return r.json({text:t,pinned:true})}
+    r.json({text:t,pinned:false})}catch(e){r.status(500).json({error:e.message})}});
+app.post('/api/posts/:id/pin',(q,r)=>{const p=db.posts.find(x=>x.id===q.params.id);if(!p)return r.sendStatus(404);if(p.type==='quiz')return r.status(400).json({error:'Quizzes cannot be pinned'});if(!(isAdmin(q)||(p.uid&&p.uid===q.body.uid)))return r.sendStatus(403);p.pin=!!q.body.pin;if(!p.pin)delete p.explain;save();r.json({ok:1,pin:p.pin})});
 app.get('/api/pending',(q,r)=>isAdmin(q)?r.json(db.posts.filter(p=>p.status==='pending')):r.sendStatus(401));
 app.post('/api/review/:id',(q,r)=>{
   if(!isAdmin(q))return r.sendStatus(401);const p=db.posts.find(x=>x.id===q.params.id);if(!p)return r.sendStatus(404);
