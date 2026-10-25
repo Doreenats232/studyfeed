@@ -1,0 +1,13 @@
+name: Deploy to Render
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+    steps:
+      - name: Trigger Render deploy
+        if: env.HOOK != ''
+        run: curl -fsS -X POST "$HOOK"
