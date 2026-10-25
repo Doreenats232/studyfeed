@@ -16,7 +16,8 @@ async function vaultSave(){if(!VK||!vReady)return;if(vBusy){vDirty=true;return}v
     if(db.posts.length>=(vs.count||0))for(const o of l.slice(0,-10))await vj('/v1/fs/delete',{path:o,paths:[o]}).catch(()=>{});vs.count=db.posts.length;vs.files=l.length;
   }catch(e){vs.ok=false;vs.err=e.message}finally{vBusy=false;if(vDirty){vDirty=false;vaultSave()}}}
 const save=()=>{try{fs.writeFileSync(F,JSON.stringify(db))}catch{}if(VK){clearTimeout(vT);vT=setTimeout(vaultSave,5000)}};
-async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}const n=l[l.length-1],s=await vj('/v1/fs/sign',{path:n,ttl:300}),j=await(await fetch(s.url)).json();db={...db,...j};vReady=true;vs.ok=true;vs.err='';vs.file=n;vs.last=Date.now();vs.count=(db.posts||[]).length;vs.files=l.length}catch(e){vs.err='load: '+e.message}}
+async function vGet(n){const s=await vj('/v1/fs/sign',{path:n,ttl:300}),u=/^https?:/.test(s.url)?s.url:VU+s.url,r=await fetch(u,{redirect:'follow'}),t=(await r.text()).replace(/^\uFEFF/,'');if(!r.ok)throw Error(`download ${r.status}: ${t.slice(0,80)}`);try{return JSON.parse(t)}catch{throw Error(`file is not JSON (${r.status}, ${t.length} bytes): ${t.slice(0,60)}`)}}
+async function vaultLoad(){if(!VK)return;try{const l=await vList();if(!l.length){vReady=true;vs.err='Empty vault, first save pending';return}let j,n,e1='';for(const f of [...l].reverse()){try{j=await vGet(f);n=f;break}catch(e){e1=e1||('load '+f+': '+e.message)}}if(!j)throw Error(e1);db={...db,...j};vReady=true;vs.ok=true;vs.err=e1;vs.file=n;vs.last=Date.now();vs.count=(db.posts||[]).length;vs.files=l.length}catch(e){vs.err=e.message}}
 const isAdmin=r=>r.headers['x-admin']===ADMIN;
 const SUBJECTS=['Mathematics','English','Physics','Chemistry','Biology','History','Geography','ICT'];
 const id=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -90,6 +91,15 @@ app.post('/api/settings',(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);const b
 app.post('/api/test',async(q,r)=>{if(!isAdmin(q))return r.sendStatus(401);try{r.json({ok:1,reply:await ai('Reply with: OK')})}catch(e){r.json({ok:0,error:e.message})}});
 app.post('/api/generate',A(async()=>{generate();return{started:1}}));
 app.get('/api/storage',A(async()=>({...vs,configured:!!VK,ready:vReady})));
-app.post('/api/storage/recover',A(async()=>{const l=await vList();let best=null,bn=-1,name='';for(const n of l){try{const s=await vj('/v1/fs/sign',{path:n,ttl:300}),j=await(await fetch(s.url)).json();if((j.posts||[]).length>bn){best=j;bn=j.posts.length;name=n}}catch{}}if(!best)throw Error('No readable versions in the vault ('+l.length+' found)');db={...db,...best};vReady=true;vs.count=bn;save();return{restored:name,posts:bn,versions:l.length}}));
+app.post('/api/storage/recover',A(async()=>{const l=await vList();let best=null,bn=-1,name='',e1='';for(const n of l){try{const j=await vGet(n);if((j.posts||[]).length>bn){best=j;bn=j.posts.length;name=n}}catch(e){e1=e1||e.message}}if(!best)throw Error(`No readable versions (${l.length} found). ${e1}`);db={...db,...best};vReady=true;vs.count=bn;save();return{restored:name,posts:bn,versions:l.length}}));
+app.get('/api/storage/status',(q,r)=>r.json({ready:vReady,err:vs.err}));
+app.post('/api/storage/test',A(async()=>{const o=[],name='studyfeed-test-'+Date.now()+'.json',T=async(n,f)=>{try{o.push('✅ '+n+': '+await f())}catch(e){o.push('❌ '+n+': '+e.message)}};
+ await T('list',async()=>{const r=await vf('/v1/fs/list');return r.status+' '+(await r.text()).slice(0,200)});
+ await T('upload',async()=>{const fd=new FormData();fd.append('file',new Blob(['{"ok":1}'],{type:'application/json'}),name);const r=await vf('/v1/upload',{method:'POST',body:fd});return r.status+' '+(await r.text()).slice(0,200)});
+ await T('list after',async()=>{const r=await vf('/v1/fs/list');return (await r.text()).slice(0,300)});
+ let u;await T('sign',async()=>{const s=await vj('/v1/fs/sign',{path:name,ttl:120});u=s.url;return JSON.stringify(s).slice(0,160)});
+ if(u)await T('download',async()=>{const r=await fetch(/^https?:/.test(u)?u:VU+u),t=await r.text();return r.status+' '+(r.headers.get('content-type')||'')+' '+t.length+' bytes: '+t.slice(0,60)});
+ await T('delete',async()=>JSON.stringify(await vj('/v1/fs/delete',{path:name,paths:[name]})).slice(0,120));
+ o.push('app sees: '+JSON.stringify(await vList().catch(e=>e.message))+' | ready='+vReady+' | err='+vs.err);return{steps:o}}));
 app.post('/api/storage/save',A(async()=>{await vaultSave();return{...vs}}));
 (async()=>{await vaultLoad();if(VK&&!vReady)setInterval(()=>{if(!vReady)vaultLoad()},15e3);app.listen(process.env.PORT||3000,()=>console.log('StudyFeed up, vault '+(VK?'on':'off')))})();
